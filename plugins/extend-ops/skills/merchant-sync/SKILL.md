@@ -95,6 +95,16 @@ Run: `text ~ "[merchant name]" AND updated >= -5d ORDER BY updated DESC`
 Repeat for each alias. For any tickets returned, fetch key fields:
 `["summary", "status", "assignee", "comment"]`
 
+### Notes Doc — 1-week window
+
+Read the implementation notes doc URL from the project file. Fetch the last 1 week of
+content only — request the final portion of the doc since recent entries are at the bottom.
+If the tool supports a limit or startIndex parameter, use it. If not, fetch the full doc
+and discard anything with a date older than 7 days.
+
+This captures manual notes written by anyone on the team (Vince, Jordan, GSM) that
+wouldn't surface in Gmail or Slack. Skip if no notes doc URL is in the project file.
+
 ### Call Recordings (Chorus, Gemini, Zoom) — 5-day window
 
 Run all three in parallel. These capture call outcomes that won't appear in Gmail or Slack.
@@ -177,7 +187,7 @@ After writing back, output a brief summary in the conversation:
 ✅ Resolved ([N]): [item names, comma-separated]
 ➕ New items ([N]): [item names, or "none"]
 📝 Updated context ([N]): [items with new info but still open, or "none"]
-Sources: Gmail [N threads] | Slack [N messages/threads] | Jira [N tickets updated] | Calls [N recaps found: Chorus/Gemini/Zoom]
+Sources: Gmail [N threads] | Slack [N messages/threads] | Jira [N tickets updated] | Notes doc [read/skipped] | Calls [N recaps found: Chorus/Gemini/Zoom]
 
 ---
 [Repeat per merchant]
