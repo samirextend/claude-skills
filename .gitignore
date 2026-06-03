@@ -1,0 +1,29 @@
+# Working files — not tracked by git
+outputs/
+agendas/
+Artifacts/
+Scheduled/
+memory/
+skill-packages/
+custom-requirements-updated/
+*.skill
+*.tsv
+*.xlsx
+*.docx
+*.md.bak
+*.md
+zi*/
+plugins/.DS_Store
+.~lock.*
+.DS_Store
+.claude/
+
+# Exception: keep README tracked
+!README.md
+
+# Exception: keep the plugin structure tracked
+!plugins/
+!plugins/**
+plugins/.DS_Store
+zi*
+**/.DS_Store
