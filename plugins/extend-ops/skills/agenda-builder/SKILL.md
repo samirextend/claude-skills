@@ -17,6 +17,15 @@ Even when resuming a session, continuing from a summary, or mid-task: read this 
 
 Specific failure mode to avoid: building the agenda without reading this skill and skipping required sections (Last Call Recap, Decisions Needed Today, inline bolded action items, What's Next). These deviations will be caught immediately. Read first — always.
 
+### 🚫 No-Skip Research Discipline (non-negotiable — applies in BOTH modes)
+
+A "fresh" or recently-updated project file is NEVER a reason to skip live research. The project file is a baseline to reconcile against, not a substitute for the sweep. There is no "scoped pulse on a fresh baseline" shortcut — that is not a valid mode and must not be used.
+
+- In Standard Mode, Steps 3, 3b, and 3c run in full, every time. This explicitly includes the **1:1 Slack DM reads** for each Extend-side contact on the project (Jordan, Lindsay, Morgan, Sara, etc.) and the **GDrive/Glean doc scan**. These are the highest-signal sources and the ones most often skipped — they are mandatory, not optional.
+- The ONLY valid reason to mark a research-guide section as not-run is a hard tool error. "Already had enough context" and "baseline looks current" are never valid.
+- Do NOT label output a "full sweep" in Research Sources unless every required section actually ran with evidence. If any section did not run, label it **"PARTIAL SWEEP"** and list the exact sources skipped and why. Never present partial research as complete.
+- Apply the internal/external filter (Step 4) to EVERY item before it lands on an agenda: internal-only items (Extend QA, internal bug/validation tickets) belong on internal calls, not external merchant calls.
+
 ---
 
 # Agenda Builder
