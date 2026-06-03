@@ -30,10 +30,19 @@ Project files live at: `{skill_base_dir}/../../../Claude/memory/projects/`
 
 ## Modes
 
-### Scheduled mode (Friday 5 PM — all active merchants)
-Process every active merchant automatically. Active = Status contains "In Progress" OR
-has at least one non-struck-through Open Action Item. Skip dormant merchants (one-line
-acknowledgment only).
+### Scheduled mode (Friday 5 PM — all merchants)
+Process every merchant according to their tier. Read project file status to determine tier:
+
+**Full active sync** — Status = "In Progress" or "Live (Hypercare)":
+Warby Parker, CarParts, Peloton, Sleep Number, 505 Mattress, City Beauty, Caleres.
+Run the complete Step 3 sweep (Gmail, Slack, Jira, Notes doc, Chorus, Gemini, Zoom).
+
+**Minimal pulse** — Status = "Live" or "On Hold":
+Rooms To Go, DNA Mattress, RugsUSA.
+Run Step 3b only (see below) — two sources, fast check for unexpected activity.
+
+**Skip entirely** — Status = "Not Assigned":
+Glamnetic. One-line acknowledgment, no research.
 
 ### Ad hoc mode (Samir provides context mid-week)
 Process one named merchant. Samir's stated context is the primary signal — "I emailed X
@@ -45,11 +54,11 @@ done, it's done.
 
 ## Step 1 — Determine mode and scope
 
-**Is there a named merchant + explicit context in the message?** → Ad hoc mode.  
-**Is this a scheduled run or a general "sync all" request?** → Scheduled mode, all active merchants.
+**Is there a named merchant + explicit context in the message?** → Ad hoc mode.
+**Is this a scheduled run or a general "sync all" request?** → Scheduled mode, all merchants.
 
 For scheduled mode, list all `.md` files in the projects directory and read them in
-parallel to identify active merchants.
+parallel. Check each merchant's Status field to assign the correct tier.
 
 ---
 
@@ -124,6 +133,32 @@ Run both methods. Run each for merchant name and all aliases.
 Repeat for each alias. For each result, call `get_file_content` with the file_id.
 
 If any of the three return zero results, mark ✅ "no results found" — do not skip without running.
+
+---
+
+## Step 3b — Minimal pulse (Live / On Hold merchants only)
+
+Two sources only. Run in parallel. Fast — should take under 1 minute per merchant.
+
+**Gmail 120-hour check:**
+`from:@[merchant-domain] newer_than:5d`
+For any thread returned, call `get_thread` with `messageFormat: FULL_CONTENT`.
+Flag any inbound as ⚠️ in the output — unexpected merchant contact on a live account warrants attention.
+
+**Jira:**
+`text ~ "[merchant name]" AND updated >= -5d ORDER BY updated DESC`
+Flag any updated tickets.
+
+Do not run Gmail 30-day, Slack, Notes doc, or call recordings for minimal pulse merchants.
+
+Output format for minimal pulse:
+```
+### [Merchant] (Live — minimal pulse)
+✅ No inbound activity, no Jira updates
+— OR —
+⚠️ [N] inbound email(s) from merchant — review needed
+⚠️ [N] Jira ticket(s) updated: [ticket IDs]
+```
 
 ---
 
