@@ -29,7 +29,7 @@ the project files are at `/sessions/abc123/mnt/outputs/memory/projects/`.
 
 Ask Samir the following questions before doing anything else. Wait for answers — do not assume or proceed without them. These answers directly shape the research scope and project file structure.
 
-**Ask all at once in a single message:**
+**Ask all at once in a single message — three questions only:**
 
 1. **New or existing merchant?**
    - New = never live with Extend before
@@ -37,22 +37,13 @@ Ask Samir the following questions before doing anything else. Wait for answers �
 
 2. **If existing: what is the net new work?**
    (e.g., "adding eComm offers", "new product line", "new channel")
-   What program/product is currently live, and what's being added?
+   Keep it brief — one sentence is enough.
 
-3. **Products and channels in scope for this engagement?**
-   (e.g., PP eComm, SP In-Store, PPA, SOP — be specific)
+3. **Any context I should know upfront that won't show up in research?**
+   (e.g., internal constraints, exec pressure, something that happened in a hallway conversation)
+   If nothing, say "none."
 
-4. **Primary merchant contact for this engagement?**
-   Name, title, email if known.
-
-5. **Go-live target?**
-   Even a rough date or quarter is useful.
-
-6. **Known GDrive notes doc or implementation plan already created?**
-   URL or "not yet."
-
-7. **Any known constraints, blockers, or context I should know upfront?**
-   (e.g., merchant has internal freeze, specific Extend engineering dependency, exec pressure on date)
+Everything else — contacts, go-live target, existing program details, GDrive docs, Slack channels — will be found during the research sweep. Do not ask for information that research can provide.
 
 Once answers are received, proceed to Step 2.
 
