@@ -25,7 +25,61 @@ the project files are at `/sessions/abc123/mnt/outputs/memory/projects/`.
 
 ---
 
-## Step 1 — Normalize and deduplicate
+## Step 1 — Intake questionnaire (run before any research)
+
+Ask Samir the following questions before doing anything else. Wait for answers — do not assume or proceed without them. These answers directly shape the research scope and project file structure.
+
+**Ask all at once in a single message:**
+
+1. **New or existing merchant?**
+   - New = never live with Extend before
+   - Existing = already live on at least one Extend product
+
+2. **If existing: what is the net new work?**
+   (e.g., "adding eComm offers", "new product line", "new channel")
+   What program/product is currently live, and what's being added?
+
+3. **Products and channels in scope for this engagement?**
+   (e.g., PP eComm, SP In-Store, PPA, SOP — be specific)
+
+4. **Primary merchant contact for this engagement?**
+   Name, title, email if known.
+
+5. **Go-live target?**
+   Even a rough date or quarter is useful.
+
+6. **Known GDrive notes doc or implementation plan already created?**
+   URL or "not yet."
+
+7. **Any known constraints, blockers, or context I should know upfront?**
+   (e.g., merchant has internal freeze, specific Extend engineering dependency, exec pressure on date)
+
+Once answers are received, proceed to Step 2.
+
+---
+
+## Step 1b — Determine research mode
+
+Based on the intake answers, set one of two modes for the rest of this skill:
+
+**Mode A — New merchant (full sweep)**
+Use when: merchant has no prior live Extend relationship.
+Research scope: all time ranges per research-guide.md defaults. Cast the full net.
+
+**Mode B — Existing merchant, net new work**
+Use when: merchant is already live on at least one Extend product and this engagement is scoped to something new.
+Research scope:
+- Limit all research to the **last 90 days only** — do not surface historical contract data, old tickets, or prior implementation context unless it directly affects the net new work
+- In Jira: search for tickets explicitly related to the net new scope only; exclude tickets tagged to the existing live program
+- In Gmail/Slack: filter to conversations about the net new work; flag but do not deeply research threads about the existing live program
+- In GDrive: read the notes doc for net new context only; note the existing program in a one-line summary and move on
+- Project file structure: use two clearly separated sections (see Step 4)
+
+State the mode explicitly before proceeding to research.
+
+---
+
+## Step 2 — Normalize and deduplicate
 
 - Create a kebab-case filename (e.g., "Rugs USA" → `rugsusa.md`, "City Beauty" → `city-beauty.md`)
 - Scan the `memory/projects/` directory to confirm no file for this merchant already exists
@@ -66,6 +120,22 @@ Write the file to `{CLAUDE_PLUGIN_ROOT}/../../../outputs/memory/projects/{kebab-
 
 Fill in every section where research returned data. For anything not found, leave the
 placeholder comment from the template — do not fabricate or guess.
+
+**Mode B only — two-section structure:**
+When in Mode B (existing merchant, net new work), structure the project file with a clear
+separation at the top so all downstream skills (agenda-builder, raid-log, etc.) know exactly
+what to focus on:
+
+```
+## ⚠️ Existing Merchant — Net New Work
+This project file covers **[net new work description]** only.
+Existing live program: [brief one-liner, e.g., "PP In-Store live since 2024 — not in scope here"]
+All research, action items, and agenda topics below are scoped to the net new work unless explicitly labeled otherwise.
+```
+
+Place this block immediately after the Overview section. Every downstream skill that reads this
+file should treat it as the scope boundary — do not pull in historical data or existing program
+topics unless Samir explicitly asks.
 
 Specific population rules:
 - **Last researched**: set to today's date in the Overview section
