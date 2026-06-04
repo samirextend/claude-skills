@@ -287,19 +287,21 @@ meeting, not everything that has ever been touched.
 **Gray area**: If an internal task has a customer-facing outcome the merchant needs to plan
 around, include only the outcome — not the internal task details.
 
-**Jira tickets in external agendas — framing rule (non-negotiable):**
-Jira tickets represent Extend-internal engineering work. Never frame a Jira ticket in an
-external agenda as something the merchant owns, needs to deploy, or is responsible for
-resolving. The merchant does not own Jira tickets — Extend's engineering team does.
-Instead, translate each Jira ticket to its merchant-facing impact:
-- "What does the merchant need to know or plan around because of this ticket?"
-- "What testing or validation does the merchant need to do once this ships?"
-- "What timeline does the merchant need to plan around?"
-Frame these as Extend commitments with a merchant-side planning dependency — not as
-merchant action items.
+**Jira tickets in external agendas — hard rules (non-negotiable):**
+Jira tickets represent Extend-internal engineering work. In external agendas:
 
-**Jira-tracked deliveries with merchant planning dependencies — always get their own section:**
-Any open Jira ticket that represents an Extend delivery the merchant needs to plan around (integration work, UAT scope, timeline dependencies) must have its own agenda block. Never group these into a "standing items" or "open items" catch-all alongside unrelated administrative actions. The test: does CarParts need to do something or plan something because of this ticket? If yes, it gets its own section with its own time estimate, action item, open question, and context sub-bullets. Administrative open items (e.g., "Sara to share REFID list") do not meet this bar and may be grouped — but a Jira-tracked endpoint delivery never does.
+1. **Never reference a Jira ticket key, ID, or project prefix (e.g., MINT-6235, XAD-3838).** The merchant does not work in Jira and ticket keys have no meaning to them.
+2. **Never give Extend engineering work its own agenda section just because the merchant asked a status question about it.** A merchant asking "how long does IN REVIEW take?" is a status question — answer it proactively async (in Slack or email), not as a dedicated agenda item.
+3. **The bar for including an Extend delivery on an external agenda is: the merchant must need to take an action or block time.** Examples that pass: "WP needs to schedule UAT testing for this feature," "WP needs to plan their integration work around this delivery date." Examples that do not pass: "WP asked about the timeline," "WP will benefit from knowing this shipped."
+4. **If an Extend delivery clears the bar, describe the merchant-facing outcome only** — no ticket names, no internal project labels, no status terminology ("IN REVIEW", "Ready For Work"). Write it as a plain Extend commitment: "Extend is building [feature]; WP will need to plan [testing/integration work] once it ships. Expected timeline: [X]."
+
+**Example — wrong (for external agenda):**
+> Extend Delivery Update: MINT-6235 and MINT-6236 in IN REVIEW — WP asked how long this takes
+
+**Example — right (only if merchant has a concrete action):**
+> Merchant Portal Enhancements: Testing Window (~3 min) — Extend has two merchant portal features shipping soon (agent/location ID filtering; post-claim redirect). Once shipped, WP should plan a testing pass in the demo store. Samir to share expected timeline.
+
+If the merchant's need is only informational (status question, no action required), handle it in Slack or as a brief verbal mention on the call — not as a dedicated agenda item with its own time estimate.
 
 **Permanent exclusion — bikes/ATVs (PRGMS-319):**
 Product catalog expansion for bikes/ATVs (e.g., [PRGMS-319](https://helloextend.atlassian.net/browse/PRGMS-319)) is not Samir's
