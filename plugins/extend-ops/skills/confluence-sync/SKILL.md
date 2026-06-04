@@ -99,6 +99,7 @@ where to look for each field — do not search every source for every field.
 | Business KPIs / Pilot | Notes doc, Salesforce opp, project MD |
 | SOP Program | SOP PRD doc (linked in project MD) |
 | Billing Edge Cases | Notes doc, requirements doc, RAID log |
+| Project Team Contacts | Project MD contacts section (both Extend and Merchant tables) |
 | Escalation Contacts | Project MD contacts section, notes doc |
 | Ongoing Operations | Project MD, notes doc, Jira TAM |
 | Phase Status | Project MD, requirements doc, Implementation Plan tab 1 |
@@ -117,6 +118,8 @@ is left exactly as-is.
 - Phases: delivered vs. committed vs. deprioritized items
 
 **Show diff, confirm before writing:**
+- Project Team: Extend and Merchant contact tables — add/update names, emails, and
+  workstream notes sourced from project MD contacts section
 - Technical Design and Requirements: integration type, contract trigger, all orders,
   offers, contract creation, order structure — only if content has changed or was blank
 - Claims: intake ownership, adjudication method, servicing — only if changed or blank
