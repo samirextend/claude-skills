@@ -76,9 +76,13 @@ Extract and hold in memory:
 
 ---
 
-## Step 3 — Run the 5-day source sweep (all in parallel)
+## Step 3 — Run the 5-day source sweep
 
-### Gmail
+**⛔ HARD RULE: Every source below is REQUIRED. Do not skip any source because it seems low-value, redundant, or unlikely to have results. The only valid reason to mark a source as not-run is a hard tool error. "Probably nothing there" is not a valid reason. You will be asked to account for every source in the Step 6 checklist before the output is accepted.**
+
+Run all sources in parallel where possible.
+
+### Gmail — REQUIRED
 
 1. **Inbound:** `from:@[merchant-domain] newer_than:5d`
 2. **Outbound:** `to:@[merchant-domain] newer_than:5d`
@@ -89,7 +93,7 @@ For every thread returned: call `get_thread` with `messageFormat: FULL_CONTENT`.
 rely on snippets — the latest reply in a long-running thread is the real signal and
 snippets won't show it.
 
-### Slack
+### Slack — REQUIRED
 
 1. Read the primary channel from the project file (`slack_read_channel`, 5-day window)
 2. Search aliases: `slack_search_public_and_private` for merchant name + each alias from "Also search as", filtered `after:[5 days ago]`
@@ -98,41 +102,39 @@ snippets won't show it.
    - Call `slack_read_channel` with each person's user ID as the channel ID
 4. For any message with thread replies, call `slack_read_thread` to read the full thread
 
-### Jira
+### Jira — REQUIRED
 
 Run: `text ~ "[merchant name]" AND updated >= -5d ORDER BY updated DESC`  
 Repeat for each alias. For any tickets returned, fetch key fields:
 `["summary", "status", "assignee", "comment"]`
 
-### Notes Doc — 1-week window
+### Notes Doc — REQUIRED (skip only if no URL in project file)
 
 Read the implementation notes doc URL from the project file. Fetch the last 1 week of
 content only — request the final portion of the doc since recent entries are at the bottom.
 If the tool supports a limit or startIndex parameter, use it. If not, fetch the full doc
 and discard anything with a date older than 7 days.
 
-This captures manual notes written by anyone on the team (Vince, Jordan, GSM) that
-wouldn't surface in Gmail or Slack. Skip if no notes doc URL is in the project file.
+### Call Recordings (Chorus, Gemini, Zoom) — REQUIRED
 
-### Call Recordings (Chorus, Gemini, Zoom) — 5-day window
+**⛔ Do not skip this section. Chorus captures call outcomes that will never appear in Gmail threads or Slack. It is the highest-signal source for decisions made on calls and must run every time.**
 
-Run all three in parallel. These capture call outcomes that won't appear in Gmail or Slack.
+Run all three in parallel.
 
-**Chorus:**
+**Chorus — REQUIRED:**
 Search Gmail: `subject:[merchant name] "meeting insights ready for review" newer_than:5d`
-Also run for each alias. For each result, use Method A (read_document on Gmail URL) or
-Method B (get_thread + extract embedded URL) — whichever returns substantive content.
+Also run for each alias. For each result, call `get_thread` with `messageFormat: FULL_CONTENT` and extract action items and meeting summary from the email body.
 
-**Gemini:**
+**Gemini — REQUIRED:**
 - Method A: `parentId = '1qU9GdzkiMDYiXvqHXrVPTUfimulg2zmH' and title contains '[merchant name]' and modifiedTime > '[5 days ago RFC3339]'` — fetch each doc found
 - Method B: Gmail search `from:gemini-notes@google.com [merchant name] newer_than:5d` — get_thread with FULL_CONTENT for each result
 Run both methods. Run each for merchant name and all aliases.
 
-**Zoom:**
+**Zoom — REQUIRED:**
 `search_zoom` with `entity_type: zoom_doc`, merchant name, filtered to last 5 days.
 Repeat for each alias. For each result, call `get_file_content` with the file_id.
 
-If any of the three return zero results, mark ✅ "no results found" — do not skip without running.
+Mark each as ✅ ran (N results) or ❌ tool error — never leave blank.
 
 ---
 
@@ -211,7 +213,9 @@ Config, Gemini/Chorus sections. Those belong to `refresh-merchant`.
 
 ## Step 6 — Output summary
 
-After writing back, output a brief summary in the conversation:
+**⛔ Do not produce this output until you have completed the source checklist below for every merchant. If any REQUIRED source was not run, go back and run it before continuing.**
+
+After writing back, output the following. The source checklist is mandatory and must appear exactly as shown — it is how Samir verifies the sweep was complete.
 
 ```
 ## Merchant Sync — [Today's Date]
@@ -222,14 +226,25 @@ After writing back, output a brief summary in the conversation:
 ✅ Resolved ([N]): [item names, comma-separated]
 ➕ New items ([N]): [item names, or "none"]
 📝 Updated context ([N]): [items with new info but still open, or "none"]
-Sources: Gmail [N threads] | Slack [N messages/threads] | Jira [N tickets updated] | Notes doc [read/skipped] | Calls [N recaps found: Chorus/Gemini/Zoom]
+
+**Source checklist — every line required:**
+- Gmail inbound (from:@domain): ✅ [N threads] / ❌ tool error
+- Gmail outbound (to:@domain): ✅ [N threads] / ❌ tool error
+- Gmail keyword search: ✅ [N threads] / ❌ tool error
+- Slack primary channel: ✅ [N messages] / ❌ tool error
+- Slack alias search: ✅ [N results] / ❌ tool error
+- Slack DMs (TAM/SA/GSM): ✅ read / ❌ tool error
+- Jira: ✅ [N tickets] / ❌ tool error
+- Notes doc: ✅ read / ❌ tool error / ⏭ no URL in project file
+- Chorus: ✅ [N emails found] / ✅ 0 results / ❌ tool error
+- Gemini: ✅ [N docs found] / ✅ 0 results / ❌ tool error
+- Zoom: ✅ [N docs found] / ✅ 0 results / ❌ tool error
 
 ---
 [Repeat per merchant]
 
 ---
 Project files updated. Monday pulse will reflect these changes.
-[If any source returned zero results, note it: "Gmail — no threads found for [merchant]"]
 ```
 
 ---

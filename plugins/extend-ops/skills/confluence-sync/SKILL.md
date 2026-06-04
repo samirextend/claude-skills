@@ -41,36 +41,29 @@ Read `research-guide.md` before starting — follow its source access patterns, 
 syntax, and alias rules exactly. But only run the sections listed below. Do not expand
 to the full sweep.
 
-**Run:**
-- Section 0 — Load project file (always)
-- Section 0b — Notes doc (targeted read: look for technical decisions, integration
-  details, edge cases, billing arrangements, escalation contacts)
-- Section 0b — Implementation Plan & RAID Log Sheet, all 3 tabs:
+**⛔ HARD RULE: Every source marked REQUIRED below must run. Do not skip any source because it seems low-value or unlikely to have changed. The only valid reason to mark a source as not-run is a hard tool error. You will fill out a source checklist in Step 5 before writing anything — if a required source is blank, go back and run it.**
+
+**Run — ALL REQUIRED unless noted:**
+
+- **Section 0 — Project file** (REQUIRED, always first)
+- **Section 0b — RAID Log Sheet, all 3 tabs** (REQUIRED — this is the primary source for decisions, risks, and custom requirements; must be fetched via read_document before any other research):
   - Tab 1 (Project Plan): phase status, milestone dates, go-live targets
-  - Tab 2 (RAID Log): decisions, open issues, risks, deferred items
+  - Tab 2 (RAID Log): decisions, open issues, risks, deferred items — **no time filter; read all rows**
   - Tab 3 (Custom Requirements): CCERP status and ticket links
-- Section 1 — Salesforce (opp URL from project MD — go-live date, products, pilot
-  conditions, commercial context, store count)
-- Section 3 — GDrive (targeted doc reads only — NOT folder traversal):
-  Read only the specific docs linked in the project MD or requirements doc:
-  technical proposal, architecture doc, program setup spreadsheet, SOP PRD,
-  claims process doc. Use `read_document` on each URL found. Skip docs not
-  explicitly linked.
-- Section 4 — Slack (targeted only — 3 weeks back):
-  Read primary implementation channel. Read DMs with SA and GSM only.
-  Search for merchant name + aliases. Goal: surface technical decisions,
-  edge cases, and known issues not in the notes doc.
-- Section 6 — Jira (CCERP epic + all child tickets, TAM board):
-  Fetch CCERP epic from project MD. List all child tickets with status and summary.
-  Fetch TAM open tickets. Focus on custom engineering work and open issues.
+- **Section 0b — Notes doc** (REQUIRED — targeted read of last 4 weeks for recent decisions and edge cases; do not filter the RAID log decisions by date)
+- **Section 1 — Salesforce** (REQUIRED — go-live date, products, pilot conditions, commercial context)
+- **Section 3 — GDrive targeted doc reads** (REQUIRED — read every doc explicitly linked in the project MD or requirements doc; do not browse folders):
+  technical proposal, architecture doc, program setup spreadsheet, SOP PRD, claims process doc
+- **Section 4 — Slack targeted reads** (REQUIRED — 3 weeks back; primary channel + DMs with SA and GSM; search merchant name + aliases)
+- **Section 6 — Jira** (REQUIRED — CCERP epic + all child tickets + TAM board)
 
 **Do NOT run:**
 - Calendar (Section 2)
-- Full GDrive folder traversal (Section 3 traversal pattern)
+- Full GDrive folder traversal
 - Full Gmail sweep (Section 5)
-- Chorus, Gemini, Zoom (Section 5b)
+- Chorus, Gemini, Zoom
 - Go-Live Checklist Assessment (Section 8) — unless explicitly running a go-live check
-- Pre-Output Verification subagent (Section 8b) — not required for this skill
+- Pre-Output Verification subagent (Section 8b)
 
 ---
 
@@ -274,12 +267,28 @@ table, since it's a new document.
 
 ---
 
-## Step 5 — Confirm before writing
+## Step 5 — Source checklist + confirm before writing
 
-Present the diff to Samir with a summary:
+**⛔ Do not present the diff until you have completed this checklist. Every REQUIRED source must be confirmed run or marked with a hard tool error.**
+
+```
+### Source Checklist — [Merchant] Confluence Sync
+- Project file: ✅ read
+- RAID Log Tab 1 (Project Plan): ✅ read / ❌ tool error
+- RAID Log Tab 2 (Decisions/Issues): ✅ read / ❌ tool error
+- RAID Log Tab 3 (Custom Requirements): ✅ read / ❌ tool error
+- Notes doc (last 4 weeks): ✅ read / ❌ tool error
+- Salesforce opp: ✅ read / ❌ tool error
+- GDrive docs: ✅ [list doc names read] / ⏭ none linked / ❌ tool error
+- Slack (primary channel + DMs): ✅ read / ❌ tool error
+- Jira (CCERP + TAM): ✅ [N tickets] / ❌ tool error
+```
+
+Then present the diff to Samir with:
 - N changes to the requirements doc
 - N fields to populate in the implementation summary (or "creating new page")
-- N gaps flagged that need manual input
+- N gaps flagged — including any requirements doc fields that contradict RAID log decisions (stale data)
+- The source checklist above
 
 Ask: "Ready to write these changes?"
 
