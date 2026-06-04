@@ -228,6 +228,7 @@ After presenting the table and change detail, always generate a downloadable TSV
 
 ## Important Constraints
 
+- **⛔ Never substitute manual instructions for the replacement table.** If the full sheet cannot be parsed from the first read attempt, re-fetch it immediately and try again before producing any output. Presenting step-by-step update instructions as a substitute for the replacement table is never acceptable — it defeats the entire purpose of this skill. The only valid output is the complete replacement table.
 - **No direct writes to the sheet.** Output a full replacement table for Samir to copy-paste. This preserves traceability — existing rows reflect his last manual edits, with only intentional updates applied on top.
 - **Next Steps / Notes is always append-only.** Never overwrite existing note content. Always prepend new notes with a date prefix above the existing text, separated by ` | ` or a newline. Historical notes must stay intact.
 - **Updates require evidence.** Only update an existing field if research clearly supports it — a Slack message, email, Jira status change, or meeting note. Do not infer or guess at status changes.
