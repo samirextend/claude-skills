@@ -171,17 +171,30 @@ were caught in the pre-call pulse.
 
 ---
 
-## Step 3c — Research Verification (Standard Mode only — mandatory before writing output)
+## Step 3c — ⛔ Pre-Output Source Checklist (Standard Mode — mandatory before writing agenda)
 
-Before writing the agenda, spawn a verification subagent using the Agent tool. Pass it your accumulated Research Sources entries and the following prompt:
+Do not write the agenda until every line below is filled. Any blank (not a tool error) = go back and run that source now. This checklist replaces the subagent verification — it is simpler and harder to skip.
 
-> "You are a research audit agent. Read the research guide at `[research-guide path]` — specifically Section 9's required entries list. Then check the following Research Sources entries: [paste your accumulated entries]. Flag every required entry that is: (a) missing entirely, (b) collapsed into another entry, (c) marked ✅ but lacks specific evidence (e.g., 'Gemini notes found' without stating which method and which aliases ran), or (d) marked ❌ without a stated hard tool error. Return a gap list. If nothing is missing, say 'all clear'."
+```
+- Project file: ✅ / ❌
+- RAID Log (all 3 tabs): ✅ / ❌ tool error
+- Notes doc: ✅ / ❌ tool error
+- Salesforce: ✅ / ❌ tool error
+- GDrive recent docs: ✅ / ❌ tool error
+- GDrive Gemini folder (Method A): ✅ N results / ✅ 0 / ❌ tool error
+- Slack primary channel: ✅ / ❌ tool error
+- Slack external channel: ✅ / ❌ tool error
+- Slack alias search: ✅ / ❌ tool error
+- Slack DMs (contacts covered: [list each person]): ✅ / ❌ tool error
+- Jira (open + project-scoped): ✅ / ❌ tool error
+- Gmail 5-day check: ✅ / ❌ tool error
+- Gmail 30-day inbound/outbound: ✅ / ❌ tool error
+- Gmail Chorus: ✅ N results / ✅ 0 / ❌ tool error
+- Gmail Gemini Method B: ✅ N results / ✅ 0 / ❌ tool error
+- Zoom: ✅ N results / ✅ 0 / ❌ tool error
+```
 
-The research guide path is: `{base_dir}/../../../Claude/memory/research-guide.md`
-
-**If the subagent flags any gaps:** fill them before proceeding. Do not write the agenda until the subagent returns all clear or every flagged gap has been addressed.
-
-This step is non-negotiable. Its entire purpose is to catch skipped steps that would otherwise silently degrade the agenda quality.
+Do not write a single line of agenda output until all 16 lines are filled.
 
 ---
 

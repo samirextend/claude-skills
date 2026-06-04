@@ -141,6 +141,28 @@ For each proposed item, fill in every applicable field:
 - Exception: anything integration, API, data, or system-related defaults to **Technical** even if it also touches another area (e.g., a data feed issue affecting analytics → Technical, not Analytics).
 - When in doubt between two non-Technical categories, pick the one that reflects *who owns the work*, not just what it's about.
 
+### ⛔ Pre-Output Gate — Fill This Before Step 5
+
+Do not present results until every required source from research-guide.md Section 9 is confirmed run. Fill in each line. Any blank (not a tool error) = go back and run it now.
+
+```
+- Project file: ✅ / ❌
+- RAID Log (all 3 tabs): ✅ / ❌ tool error
+- Notes doc: ✅ / ❌ tool error
+- Salesforce: ✅ / ❌ tool error
+- GDrive recent docs: ✅ / ❌ tool error
+- GDrive Gemini folder (Method A): ✅ N results / ✅ 0 / ❌ tool error
+- Slack primary channel: ✅ / ❌ tool error
+- Slack alias search: ✅ / ❌ tool error
+- Slack DMs (contacts: [list]): ✅ / ❌ tool error
+- Jira (open + project-scoped): ✅ / ❌ tool error
+- Gmail 5-day check: ✅ / ❌ tool error
+- Gmail 30-day inbound/outbound: ✅ / ❌ tool error
+- Gmail Chorus: ✅ N results / ✅ 0 / ❌ tool error
+- Gmail Gemini Method B: ✅ N results / ✅ 0 / ❌ tool error
+- Zoom: ✅ N results / ✅ 0 / ❌ tool error
+```
+
 ### Step 5: Present Results
 
 Always present in three parts:

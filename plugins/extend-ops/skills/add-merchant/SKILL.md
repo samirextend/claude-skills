@@ -105,6 +105,28 @@ Use it as the base structure for the new project file.
 
 ---
 
+## ⛔ Pre-Write Gate — Fill This Before Step 4
+
+Do not create the project file until every required source from research-guide.md Section 9 is confirmed run. Fill in each line. Any blank (not a tool error) = go back and run it now.
+
+```
+- Project file (existing, if any): ✅ checked / ✅ none found
+- RAID Log (all 3 tabs): ✅ / ❌ tool error / ✅ none found
+- Notes doc: ✅ / ❌ tool error / ✅ none found
+- Salesforce: ✅ / ❌ tool error
+- GDrive folder traversal: ✅ / ❌ tool error
+- GDrive Gemini folder (Method A): ✅ N results / ✅ 0 / ❌ tool error
+- Slack primary channel: ✅ / ❌ tool error / ✅ none found
+- Slack alias search: ✅ / ❌ tool error
+- Slack DMs (contacts: [list]): ✅ / ❌ tool error
+- Jira (open + project-scoped): ✅ / ❌ tool error
+- Gmail 5-day check: ✅ / ❌ tool error
+- Gmail 30-day inbound/outbound: ✅ / ❌ tool error
+- Gmail Chorus: ✅ N results / ✅ 0 / ❌ tool error
+- Gmail Gemini Method B: ✅ N results / ✅ 0 / ❌ tool error
+- Zoom: ✅ N results / ✅ 0 / ❌ tool error
+```
+
 ## Step 4 — Create the project file
 
 Write the file to `{CLAUDE_PLUGIN_ROOT}/../../../outputs/memory/projects/{kebab-name}.md`.
