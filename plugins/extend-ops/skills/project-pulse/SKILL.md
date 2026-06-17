@@ -3,7 +3,7 @@ name: project-pulse
 description: >
   Fast project health snapshot across all active merchant implementations. Run on Monday
   mornings, before key meetings, or any time Samir wants to know what needs his attention.
-  Reads project files and RAID TSVs only — no live research, no external source calls.
+  Reads project files and RAID log GSheets (TSV fallback) — no Slack, Gmail, Jira, or other live research.
   Use when Samir says "project pulse", "what needs my attention", "weekly briefing",
   "what's open across my merchants", "give me a snapshot", "what should I focus on this
   week", "pulse check", "run the pulse", or "weekly pulse". Also runs automatically on
@@ -20,14 +20,9 @@ that is by design.
 
 # Project Pulse Skill
 
-Synthesizes a priority brief across all active merchant implementations by reading local
-files only: project `.md` files and RAID log TSVs. No Slack, Gmail, GDrive, Jira,
-Calendar, or any other external source is called during a pulse run.
+Synthesizes a priority brief across all active merchant implementations. Reads project `.md` files and RAID log GSheets (with local TSV fallback). No Slack, Gmail, Jira, Calendar, Salesforce, Chorus, Gemini, or Zoom calls during a pulse run.
 
-**Why local-only:** Project files are the aggregated output of every skill run
-(raid-log, agenda-builder, ccerp, custom-requirements, refresh-merchant). They represent
-the current known state of each implementation. The pulse trusts that state and synthesizes
-from it — it does not attempt to independently verify or supplement it.
+**Why minimal sources:** Project files are the aggregated output of every skill run (raid-log, agenda-builder, ccerp, custom-requirements, refresh-merchant). The pulse trusts that state and synthesizes from it. The RAID log GSheet is read directly because it is the source of truth — manual updates made between skill runs would otherwise be invisible.
 
 **Base directory:** Resolve relative paths from this file's own location.
 Project files live at: `{skill_base_dir}/../../../Claude/memory/projects/`
@@ -64,18 +59,29 @@ Why this matters: the project file status is only as fresh as the last skill run
 
 ---
 
-## Step 2 — Load RAID log TSV (local only, no network call)
+## Step 2 — Load RAID log (GSheet primary, TSV fallback)
 
-For each active merchant, check for a local RAID log TSV:
+For each active merchant, read the RAID log using the following priority order:
+
+**Primary — Google Sheet (read via GDrive MCP):**
+1. Check the merchant's project file `## RAID Log` section for a `**Google Sheet:**` entry with a file ID.
+2. If found, call `read_file_content` with that file ID to fetch the live sheet. This ensures any manual updates made directly in the GSheet (between skill runs) are reflected.
+3. Tab structure varies by merchant — always read the `## RAID Log` section of the project file to determine which tab(s) to read and which contains RAID rows. Do not assume a fixed tab count.
+4. Parse all 15 columns: `ID | Last Updated | RAID | Type | Category | Date Raised | Owner | Status | Name | Description | Next Steps / Notes | Target Completion Date | Decision | Decision Date | Future Phase?`
+
+**Fallback — local TSV (if GSheet read fails or no file ID in project file):**
 
 Glob: `{skill_base_dir}/../../../Claude/*{merchant_slug}*raid*log*V*.tsv`
 
 (Replace spaces/hyphens in the merchant name with underscores or wildcards; case-insensitive.)
 
 - If multiple versions exist, use the highest V-number.
-- Parse all 15 columns: `ID | Last Updated | RAID | Type | Category | Date Raised | Owner | Status | Name | Description | Next Steps / Notes | Target Completion Date | Decision | Decision Date | Future Phase?`
-- If no TSV exists, use project file data only — this is fine.
-- **Do not make any network call to fetch a RAID log.** Local file only.
+- Parse the same 15 columns.
+- Note in output: `RAID TSV (GSheet unavailable)` so Samir knows the source.
+
+**If neither GSheet nor TSV is available:** use project file data only — this is fine. Note: `RAID: project file only`.
+
+**Note on the GSheet read:** This is the only external call the pulse makes. It is intentional — the GSheet is the source of truth and may contain manual updates not yet reflected in the local TSV or project file. All other sources (Slack, Gmail, Jira, Calendar, etc.) remain off-limits during a pulse run.
 
 ---
 
@@ -102,7 +108,10 @@ Pull from whichever sources are available (RAID TSV and/or project file sections
   "not yet confirmed", or similar language.
 - **Overview section** — go-live target, current status, any flagged notes (e.g., "⚡",
   "URGENT", phase transitions, date slippage language).
-- **Open Tickets section** — any tickets flagged as blocked, escalated, or overdue.
+- **Ticket status** — read both sections from the project file; they cover different things:
+  - `## Open Ticket Statuses` — tickets updated in the last 5 days (merchant-sync's text/alias sweep). Prefer this if present; fall back to `## Open Tickets` only if absent.
+  - `## Jira Epic Hierarchy` — full TAM epic → child task → cross-project linked issue structure, regardless of recent activity. Check each non-Done child and linked issue for overdue target dates, blocked status, and owner. These will not appear in `## Open Ticket Statuses` if they haven't been updated recently.
+  Deduplicate: if a ticket appears in both sections, show it once (prefer structured fields from `## Jira Epic Hierarchy` if available).
   Do not re-query Jira — read only what's in the project file.
 
 ### Deduplication:
@@ -250,9 +259,7 @@ items (set `name` to include the source tag, e.g. `"Submit Store ID to Shawna [p
 
 ## Constraints
 
-- **Local files only** — no Slack, Gmail, GDrive, Jira, Calendar, Salesforce, Chorus,
-  Gemini, or Zoom calls during a pulse run. If you find yourself reaching for a live
-  source, stop — that belongs in a raid-log or refresh-merchant run instead.
+- **Minimal sources only** — the only external call permitted is the RAID log GSheet read in Step 2. No Slack, Gmail, Jira, Calendar, Salesforce, Chorus, Gemini, or Zoom. If you find yourself reaching for any of those, stop — that belongs in a raid-log or refresh-merchant run instead.
 - **Read-only** — do not write to project files, RAID TSVs, or any other file.
 - **No removes** — do not modify, delete, or reorganize any existing file content.
 - **Speed** — if any file read fails, skip that merchant, note the failure, and continue.

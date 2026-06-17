@@ -130,9 +130,10 @@ Do not score the checklist until every required source from research-guide.md Se
 - Jira (open + project-scoped): ✅ / ❌ tool error
 - Gmail 5-day check: ✅ / ❌ tool error
 - Gmail 30-day inbound/outbound: ✅ / ❌ tool error
-- Gmail Chorus: ✅ N results / ✅ 0 / ❌ tool error
-- Gmail Gemini Method B: ✅ N results / ✅ 0 / ❌ tool error
-- Zoom: ✅ N results / ✅ 0 / ❌ tool error
+- Slack DM D057X0PEFJS — Chorus recaps: ✅ N recaps for [merchant] / ✅ 0 / ❌ tool error
+- Gmail Chorus fallback: ✅ N results / N/A (Slack DM had results) / ❌ tool error
+- Gmail Gemini Method B fallback: ✅ N results / N/A (Method A had results) / ❌ tool error
+- Zoom: ✅ N results / ✅ 0 / N/A (Recording Tools doesn't list Zoom) / ❌ tool error
 ```
 
 ## Step 3 — Score the Checklist

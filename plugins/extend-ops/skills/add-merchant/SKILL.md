@@ -122,9 +122,10 @@ Do not create the project file until every required source from research-guide.m
 - Jira (open + project-scoped): ✅ / ❌ tool error
 - Gmail 5-day check: ✅ / ❌ tool error
 - Gmail 30-day inbound/outbound: ✅ / ❌ tool error
-- Gmail Chorus: ✅ N results / ✅ 0 / ❌ tool error
-- Gmail Gemini Method B: ✅ N results / ✅ 0 / ❌ tool error
-- Zoom: ✅ N results / ✅ 0 / ❌ tool error
+- Slack DM D057X0PEFJS — Chorus recaps: ✅ N recaps for [merchant] / ✅ 0 / ❌ tool error
+- Gmail Chorus fallback: ✅ N results / N/A (Slack DM had results) / ❌ tool error
+- Gmail Gemini Method B fallback: ✅ N results / N/A (Method A had results) / ❌ tool error
+- Zoom: ✅ N results / ✅ 0 / N/A (Recording Tools doesn't list Zoom) / ❌ tool error
 ```
 
 ## Step 4 — Create the project file
@@ -166,6 +167,8 @@ Specific population rules:
 - **Recurring Topics**: seed with any themes that appeared across multiple sources
 - **Already Resolved**: leave blank — nothing is resolved until confirmed resolved in a source
 - **Jira Search Config**: if the generic text search returned a lot of noise, note a tighter JQL
+- **GDrive Subfolder**: populate with the folder IDs discovered during traversal. If the merchant has a master root containing older past-implementation folders alongside the current one, label them explicitly: "Current implementation folder" (use for all skill scanning) and "Master root folder (do not scan)." List any known subfolder IDs beneath the current implementation folder.
+- **Key Reference Docs**: bootstrap this section during the initial sweep — do not leave it empty. For every reference doc found during research (SOP, BRD, integration spec, UAT sheet, requirements doc, config doc), add an entry with: Name, File ID, URL, Last Modified date, and a 2-4 sentence excerpt (purpose, key content, specific field names, thresholds, tab names). This catalogue is what all future skill runs use for direct file ID delta checks instead of re-running folder searches. A well-seeded `## Key Reference Docs` from add-merchant means every downstream skill run (merchant-sync, agenda-builder, confluence-sync) is faster from day one.
 
 ---
 

@@ -56,7 +56,9 @@ Do not reconcile or update the project file until every required source from res
 - RAID Log (all 3 tabs): ✅ / ❌ tool error
 - Notes doc: ✅ / ❌ tool error
 - Salesforce: ✅ / ❌ tool error
-- GDrive recent docs: ✅ / ❌ tool error
+- GDrive — root folder scan (parentId = '[root folder ID]'): ✅ N results / ❌ tool error
+- GDrive — each known subfolder scanned (list subfolder IDs run): ✅ / ❌ tool error
+- GDrive — Glean backstop (app:gdrive [merchant name], all aliases): ✅ N results / ✅ 0 / ❌ tool error
 - GDrive Gemini folder (Method A): ✅ N results / ✅ 0 / ❌ tool error
 - Slack primary channel: ✅ / ❌ tool error
 - Slack alias search: ✅ / ❌ tool error
@@ -64,9 +66,10 @@ Do not reconcile or update the project file until every required source from res
 - Jira (open + project-scoped): ✅ / ❌ tool error
 - Gmail 5-day check: ✅ / ❌ tool error
 - Gmail 30-day inbound/outbound: ✅ / ❌ tool error
-- Gmail Chorus: ✅ N results / ✅ 0 / ❌ tool error
-- Gmail Gemini Method B: ✅ N results / ✅ 0 / ❌ tool error
-- Zoom: ✅ N results / ✅ 0 / ❌ tool error
+- Slack DM D057X0PEFJS — Chorus recaps: ✅ N recaps for [merchant] / ✅ 0 / ❌ tool error
+- Gmail Chorus fallback: ✅ N results / N/A (Slack DM had results) / ❌ tool error
+- Gmail Gemini Method B fallback: ✅ N results / N/A (Method A had results) / ❌ tool error
+- Zoom: ✅ N results / ✅ 0 / N/A (Recording Tools doesn't list Zoom) / ❌ tool error
 ```
 
 ## Step 3 — Reconcile and update the project file
@@ -114,6 +117,13 @@ Preserve existing content unless research explicitly contradicts it.
 ### Also search as
 - Validate this field contains plain readable text (not commented out or empty)
 - Add any new aliases discovered (ticker symbols, shorthand, domain variants)
+
+### Key Reference Docs
+- For every doc already in `## Key Reference Docs` that was re-read during this sweep: update `Last Modified` date, `Excerpt`, and add a delta note if content changed. Format: 2-4 sentences, dense enough to use without re-fetching (specific field names, plan IDs, tab names, dates, owners, caveats).
+- Do not touch entries for docs that were not re-read and have not changed.
+- **Auto-catalogue any new doc surfaced during research** — do not wait for manual bootstrapping. For every doc found via the folder scan, Glean backstop, Gmail share notification, or Slack link that is not already in the project file: classify it (living doc vs. reference doc), read it, and add it to the appropriate section with file ID, URL, last modified date, and a 2-4 sentence excerpt. Living docs go to their dedicated sections; reference docs go to `## Key Reference Docs`. This is the mechanism by which the catalogue grows over time — every refresh-merchant run should leave the project file with a more complete doc index than it started with.
+
+**Full subfolder scan (refresh-merchant only):** Because `parentId` queries do not recurse, run a separate `parentId = '[subfolder ID]'` query for every subfolder ID listed in the project file (`## GDrive Subfolder` section). Always use the **current implementation folder ID** as the root of the scan — not the master root. Some merchants (e.g., CarParts) have a master root containing older past-implementation folders that produce noise; the project file labels these distinctly. If only one folder ID is listed, use that. For any subfolder not yet in the project file, list the current implementation folder first, identify subfolders by mimeType = folder, add their IDs to the project file, then query each. Any doc found that is not already catalogued gets added per the auto-catalogue rule above.
 
 ---
 

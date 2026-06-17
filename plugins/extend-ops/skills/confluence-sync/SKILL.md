@@ -46,10 +46,9 @@ to the full sweep.
 **Run — ALL REQUIRED unless noted:**
 
 - **Section 0 — Project file** (REQUIRED, always first)
-- **Section 0b — RAID Log Sheet, all 3 tabs** (REQUIRED — this is the primary source for decisions, risks, and custom requirements; must be fetched via read_document before any other research):
-  - Tab 1 (Project Plan): phase status, milestone dates, go-live targets
-  - Tab 2 (RAID Log): decisions, open issues, risks, deferred items — **no time filter; read all rows**
-  - Tab 3 (Custom Requirements): CCERP status and ticket links
+- **Section 0b — Implementation Plan and RAID Log data** (REQUIRED — primary source for decisions, risks, and custom requirements; must be fetched before any other research). Check `## RAID Log` in the project file for `**Structure:** Dedicated` before reading:
+  - **Dedicated structure (WP, CarParts, Sleep Number):** Read the Implementation Plan sheet (file ID from `## GDrive Subfolder`). Validate tab names after reading — route by actual tab name, not position: project plan tab → phase/milestone data; custom requirements tab → CCERP data. Read RAID rows from the dedicated RAID sheet (file ID from `## RAID Log`).
+  - **Combined structure (Peloton, others):** Read the single sheet (file ID from `## RAID Log`). Validate tab names after reading — route by actual tab name: project plan tab → phase/milestone data; RAID log tab → decisions/issues; custom requirements tab → CCERP data. Skip any tab that does not exist yet. Do not assume a fixed tab order.
 - **Section 0b — Notes doc** (REQUIRED — targeted read of last 4 weeks for recent decisions and edge cases; do not filter the RAID log decisions by date)
 - **Section 1 — Salesforce** (REQUIRED — go-live date, products, pilot conditions, commercial context)
 - **Section 3 — GDrive targeted doc reads** (REQUIRED — read every doc explicitly linked in the project MD or requirements doc; do not browse folders):
@@ -185,9 +184,16 @@ Already loaded in Step 1. Now read the linked artifacts:
 technical edge cases, billing arrangements, escalation contacts, scope changes.
 Discard content older than 4 weeks.
 
-**Implementation Plan sheet:** Read all 3 tabs using the file ID and tab GIDs from
-the project file. Extract: phase status and milestone dates (Tab 1), open issues and
-decisions (Tab 2), CCERP requirement status (Tab 3).
+**Implementation Plan sheet:** Check the project file's `## RAID Log` section for `**Structure:** Dedicated` before reading:
+
+**If dedicated (WP, CarParts, Sleep Number):**
+- Read **RAID log data** from the **dedicated RAID sheet** (file ID from `## RAID Log` section).
+- Read the **Implementation Plan sheet** (file ID from `## GDrive Subfolder`). After reading, validate tab names — route by actual tab name, not position: project plan tab → phase/milestone data; custom requirements tab → CCERP status.
+
+**If combined (Peloton, others):**
+- Read the single sheet (file ID from `## RAID Log`). After reading, validate tab names — route by actual tab name: project plan tab → phase/milestone data; RAID log tab → decisions/issues; custom requirements tab → CCERP status. Skip any tab that does not exist yet.
+
+Do not assume a fixed tab order for any merchant.
 
 ### 3b. Salesforce (Section 1)
 
@@ -200,7 +206,13 @@ commercial context, AE and GSM names.
 ### 3c. GDrive — targeted doc reads (Section 3, targeted only)
 
 For each URL found in the project file or requirements doc that maps to a high-signal
-technical doc, call `read_document`:
+technical doc, check `## Key Reference Docs` first before calling `read_document`:
+
+- If a matching entry exists (by File ID or URL) and its `Last Modified` date is ≤ `last_sync_date` from `## Last Sync Metadata`: use the cached excerpt for the Confluence diff — do not fetch the full doc.
+- Only call `read_document` if: no cached entry exists, `Last Modified` > `last_sync_date`, or the excerpt is clearly insufficient for the specific field being populated (e.g., exact field values or table data required).
+- If `## Last Sync Metadata` is absent from the project file, treat all entries as stale and fetch normally.
+
+Docs to check and their downstream targets:
 
 - Technical proposal / architecture doc → feeds Order/Contract Flow, API sections
 - Program setup spreadsheet → feeds Offers, Products/Eligibility, Pricing sections
@@ -274,9 +286,9 @@ table, since it's a new document.
 ```
 ### Source Checklist — [Merchant] Confluence Sync
 - Project file: ✅ read
-- RAID Log Tab 1 (Project Plan): ✅ read / ❌ tool error
-- RAID Log Tab 2 (Decisions/Issues): ✅ read / ❌ tool error
-- RAID Log Tab 3 (Custom Requirements): ✅ read / ❌ tool error
+- Implementation Plan Tab 1 (Project Plan): ✅ read / ❌ tool error
+- RAID Log (dedicated sheet or Tab 2 of combined sheet): ✅ read / ❌ tool error
+- Custom Requirements (Tab 3 or dedicated tab): ✅ read / ❌ tool error
 - Notes doc (last 4 weeks): ✅ read / ❌ tool error
 - Salesforce opp: ✅ read / ❌ tool error
 - GDrive docs: ✅ [list doc names read] / ⏭ none linked / ❌ tool error

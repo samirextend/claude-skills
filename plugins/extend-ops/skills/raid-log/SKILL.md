@@ -27,19 +27,103 @@ This skill surfaces and logs RAID items (Risks, Actions, Issues, Decisions) for 
 ### Step 1: Locate the Merchant's RAID Log
 
 1. Read the merchant's project file. Resolve the path using the skill's own location: `{skill_base_dir}/../../../outputs/memory/projects/{merchant}.md` (where skill_base_dir is the directory containing this SKILL.md, e.g. `/sessions/abc123/mnt/.claude/skills/raid-log`). This resolves to `/sessions/abc123/mnt/outputs/memory/projects/{merchant}.md`.
-2. Look for the **Implementation Plan & RAID Log** Google Sheets file ID or link stored there
-3. If not present, locate it in Google Drive using this folder structure:
+2. Check for a **dedicated RAID log sheet** first: look for a `## RAID Log` section in the project file with a `**Google Sheet:**` field and `**Structure:** Dedicated` note. If present, use this sheet — it is a standalone RAID-only sheet (single tab). Skip to step 4.
+3. If no dedicated sheet: look for the **Implementation Plan & RAID Log** combined sheet in the project file's GDrive section. If not in the project file, locate it in Google Drive:
    - **Root merchants folder**: `https://drive.google.com/drive/folders/16w2ilKVgPtXgwKEmYeHE6-viNsGrBZTG`
-   - Navigate into the appropriate **status subfolder** (In Progress, Live, On Hold, or similar)
-   - Then into the **merchant-specific subfolder**
-   - Then into the **onboarding subfolder** (named "Onboarding", "Onboarding/Sales", or a similar permutation)
-   - The file title will always contain the merchant name + "RAID" + "Plan" — e.g., "[Merchant] Extend Implementation Plan & RAID Log"
+   - Navigate into the appropriate **status subfolder** (In Progress, Live, On Hold, or similar), then into the merchant-specific subfolder, then into the onboarding subfolder
+   - The file title contains the merchant name + "RAID" + "Plan" — e.g., "[Merchant] Extend Implementation Plan & RAID Log"
    - Once found, save the file ID into the merchant's project file for future reference
-4. Read the spreadsheet — the RAID log is the **second table**. Column B is `Last Updated`. Full column order: `ID | Last Updated | RAID | Type | Category | Date Raised | Owner | Status | Name | Description | Next Steps / Notes | Target Completion Date | Decision | Decision Date | Future Phase?`
+4. Read the spreadsheet. For dedicated sheets (Structure A — WP, CarParts, Sleep Number): all rows are the RAID log — read with one `read_file_content` call. For combined sheets (Structure B — Peloton): the RAID log is Tab 2. Column B is `Last Updated`. Full column order: `ID | Last Updated | RAID | Type | Category | Date Raised | Owner | Status | Name | Description | Next Steps / Notes | Target Completion Date | Decision | Decision Date | Future Phase?`
 5. Capture **all existing rows in full**, including each row's current `Last Updated` value and the exact current Name value (preserving any [NEW]/[UPDATED] prefix already in the sheet from a prior run — you will strip these for untouched rows when producing output)
 6. Note the **next available ID number** to continue the sequence for new items
 
-### Step 2: Deep Research
+### Delta Mode Gate (check before Step 2)
+
+**Before running the full research sweep, check whether delta mode applies.**
+
+Delta mode is a faster alternative to the 8-week full sweep. It uses cached project MD sections as the baseline for context up to last sync, then sweeps only the gap between last sync and today. It is appropriate for routine mid-week or weekly updates where the project MD was freshly synced.
+
+**Gate — all three must pass. If any fails, skip to the full sweep in Step 2.**
+
+1. `## Last Sync Metadata` in the project MD has `date` within **8 days** of today AND `skill: weekly-merchant-sync`
+2. `## Recent Call Recaps` section exists in the project MD (even if it reads "no calls found in 8-day window" — a quiet week is valid; the section just needs to have been written by a prior sync)
+3. RAID TSV was successfully read in Step 1 (not a hard tool error)
+
+**If gate passes:** Log `DELTA MODE activated — last sync [date], gap: [N] days` and follow the Delta Research Scope below. Skip the full sweep in Step 2.
+
+**If gate fails:** Log which condition failed, then proceed to the full sweep in Step 2 as normal.
+
+---
+
+#### Delta Research Scope (only when gate passes — replaces the full Step 2 sweep)
+
+**Compute timestamps first (bash — no mental math):**
+```bash
+# Replace [last_sync_date] with the date value from ## Last Sync Metadata
+date -d '[last_sync_date]' +%s                    # gap_ts — oldest= param for Slack reads since last sync
+date -d '7 days ago 00:00:00' +%s                 # seven_day_ts — for Gmail/Jira queries
+date -d '7 days ago 00:00:00' --utc +%Y-%m-%dT%H:%M:%SZ  # RFC3339 for GDrive/Gemini queries
+```
+
+Note: `gap_ts` from a date string (e.g., `date -d '2026-06-10'`) defaults to midnight automatically — it is already midnight-anchored. The `7 days ago` timestamps require the explicit `00:00:00` because without it they compute relative to the current time of day, which can exclude messages posted early on the boundary day.
+
+**Read (required):**
+
+- **Project MD — all sections:** `## Recent Call Recaps`, `## Open Action Items`, `## Open Ticket Statuses`, `## Phase Breakdown`, `## Custom Requirements Summary`, `## Key Decisions`, `## Sync History`. These are the primary context source for everything up to last_sync_date. Use them verbatim — do not re-query for items already captured here.
+  - **`## Recent Call Recaps` — date-scope when processing:** This is a running log (newest first). Only process entries newer than `last_sync_date` for new RAID items — older entries were already processed in prior runs and should not generate duplicate proposals.
+- **Project MD — `## GDrive Doc Index`:** Read before any GDrive query. Skip any doc whose `Last Modified` date in the index predates `last_sync_date`. Only fetch docs with a newer modified date. If absent, proceed with normal GDrive query.
+- **Project MD — `## Key Reference Docs`:** Check before any GDrive doc read. For each entry with a File ID, compare `Last Modified` against `last_sync_date`. Skip docs not modified since last sync — use cached excerpts as context. Only fetch docs with `Last Modified` > `last_sync_date`. Entries with `File ID: N/A` (Lucidchart, folders, external platforms) cannot be skipped this way.
+- **Project MD — `## Slack Highlights`:** Read as ambient Slack context from the last sync window. Use as supplement for non-critical context; don't re-query Slack for items already captured here.
+- **Project MD — `## Gmail Highlights`:** Same as Slack Highlights, for email context.
+- **Project MD — `## Last Agendas`:** Read if present. Apply a two-level read: (1) find entries matching the most recently run meeting type (Internal or External) as primary context — surfaces what was known and planned going into the last call, including action items and decision context not yet logged in RAID; (2) scan all other entries of the same type as supplemental background. Do not skip entries because their title differs slightly — the same-type scan catches context from similarly-named meetings.
+- **RAID TSV — all 3 tabs:** Same as full mode. Required for current state of all rows.
+- **Notes doc — last 7 days only:** Fetch the last portion of the doc and discard entries older than 7 days.
+- **Slack primary channel:** `oldest: gap_ts` — only messages since last sync
+- **Slack DMs with key contacts:** `oldest: gap_ts` — each contact in the project file's Extend-side list
+- **Slack DM `D057X0PEFJS` (Chorus):** `oldest: gap_ts` — captures any calls since last sync that aren't yet in `## Recent Call Recaps`. Extract every action item and summary in full — same fidelity rules as full mode.
+- **Gemini GDrive folder (Method A):** docs modified since `last_sync_date` (use RFC3339 timestamp). For each doc found, check against the Chorus covered meetings set and read uncovered docs in full.
+- **Jira:** Two sources — both required:
+  - Live query: `text ~ "[merchant name]" AND updated >= -7d ORDER BY updated DESC` — open tickets updated in the gap window
+  - Project file `## Jira Epic Hierarchy` — read directly, no live query needed. Catches child tasks and cross-project linked issues not recently updated and therefore invisible to the date-gated query above
+- **Gmail inbound:** `from:@[merchant-domain] newer_than:7d` — inbound only. For each thread, call `get_thread MINIMAL`, then `FULL_CONTENT` if last message is within 7 days.
+
+**Gmail Chorus fallback:** Run only if Slack DM `D057X0PEFJS` returned 0 recaps for this merchant since `last_sync_date`.
+**Gemini Gmail Method B fallback:** Run only if GDrive Method A returned 0 results since `last_sync_date`. If it runs, call `get_thread FULL_CONTENT` on every result.
+
+**Skip (not needed in delta mode):**
+- 8-week Slack lookback — replaced by gap-window read above
+- Gmail 30-day outbound / keyword sweep
+- Salesforce
+- Calendar
+- GDrive folder traversal
+
+**Pre-output checklist for delta mode (fill before Step 5):**
+
+```
+DELTA MODE — [Merchant] — last sync [date] / gap: [N] days
+
+- Project MD (all sections): ✅ / ❌
+- Project MD — GDrive Doc Index: ✅ read, [N] docs in index / ✅ absent / ❌ error
+- Project MD — Slack Highlights: ✅ read / ✅ absent / ❌ error
+- Project MD — Gmail Highlights: ✅ read / ✅ absent / ❌ error
+- Project MD — Last Agendas: ✅ read ([N] entries, same-type scan done) / ✅ absent / ❌ error
+- RAID TSV (all 3 tabs): ✅ / ❌ tool error
+- Notes doc (last 7d): ✅ read / ❌ tool error / ⏭ no URL in project file
+- Slack primary channel (since [last_sync_date]): ✅ N messages / ✅ 0 / ❌ tool error
+- Slack DMs (contacts: [list], since [last_sync_date]): ✅ / ❌ tool error
+- Jira (updated -7d): ✅ N tickets / ❌ tool error
+- Gmail inbound (7d): ✅ N threads / N opened FULL_CONTENT / ❌ tool error
+- Slack DM D057X0PEFJS — Chorus since [last_sync_date]: ✅ N recaps / ✅ 0 / ❌ tool error
+- Gemini GDrive Method A (since [last_sync_date]): ✅ N docs / ✅ 0 / ❌ tool error
+- Gmail Chorus fallback: N/A (Slack DM had results) / ✅ N results / ❌ tool error
+- Gmail Gemini Method B fallback: N/A (Method A had results) / ✅ N threads, N FULL_CONTENT / ❌ tool error
+```
+
+Label the Part 1 output header as `DELTA SWEEP — [N]-day gap since last sync ([date])`.
+
+---
+
+### Step 2: Deep Research (full sweep — only when delta gate fails)
 
 Read `research-guide.md` at `{skill_base_dir}/../../../Claude/memory/research-guide.md` and follow **Sections 0b through 7** for all research mechanics: key merchant artifacts (notes doc, Implementation Plan, RAID log, custom requirements sheet), Salesforce, Calendar, GDrive, Slack, Gmail (including Chorus and Gemini dual-method), Zoom, Jira, alias discipline, dynamic contacts list, completed-action checks, and cross-source reconciliation.
 
@@ -50,6 +134,7 @@ Read `research-guide.md` at `{skill_base_dir}/../../../Claude/memory/research-gu
 - **Extended lookback:** Use **8 weeks** for Slack and GDrive instead of the guide's 3-week and 4-week defaults. RAID items frequently surface from decisions and conversations made weeks ago that haven't been formally documented yet. Gmail 30-day default applies as-is.
 - **Research focus:** Actively hunt for anything that deserves a RAID entry — risks, blockers, decisions, and committed actions. Don't wait for something to be explicitly labeled; read between the lines in every source.
 - **External merchant channel is highest priority:** Informal decisions, security questions, and integration asks from the merchant side surface here first and often nowhere else.
+- **Chorus/Gemini — always read in full, never use the cache:** The agenda-builder delta shortcut does NOT apply here. RAID log entries require the full technical context — specific field names, API behaviors, integration details, verbatim decisions — that a cached summary may compress or drop. For Chorus: read Slack DM `D057X0PEFJS` and extract every relevant recap in full (all action items + full meeting summary — do not truncate). For Gemini: read every uncovered GDrive doc in full via `read_document`; if Gmail Method B runs as fallback, call `get_thread FULL_CONTENT` on every result. Do not rely on project file caches regardless of `last_call_date`.
 
 **What constitutes each RAID type:**
 
@@ -143,7 +228,9 @@ For each proposed item, fill in every applicable field:
 
 ### ⛔ Pre-Output Gate — Fill This Before Step 5
 
-Do not present results until every required source from research-guide.md Section 9 is confirmed run. Fill in each line. Any blank (not a tool error) = go back and run it now.
+**If running in delta mode:** Use the delta checklist in the Delta Research Scope section above instead of this one. Do not fill in this full-sweep checklist for a delta run.
+
+**If running the full sweep:** Do not present results until every required source from research-guide.md Section 9 is confirmed run. Fill in each line. Any blank (not a tool error) = go back and run it now.
 
 ```
 - Project file: ✅ / ❌
@@ -158,10 +245,17 @@ Do not present results until every required source from research-guide.md Sectio
 - Jira (open + project-scoped): ✅ / ❌ tool error
 - Gmail 5-day check: ✅ / ❌ tool error
 - Gmail 30-day inbound/outbound: ✅ / ❌ tool error
-- Gmail Chorus: ✅ N results / ✅ 0 / ❌ tool error
-- Gmail Gemini Method B: ✅ N results / ✅ 0 / ❌ tool error
-- Zoom: ✅ N results / ✅ 0 / ❌ tool error
+- Slack DM D057X0PEFJS — Chorus recaps: ✅ N recaps for [merchant], all extracted in full / ✅ 0 / ❌ tool error
+- Gmail Chorus fallback: ✅ N results / N/A (Slack DM had results) / ❌ tool error
+- Gmail Gemini Method B fallback: ✅ N threads found, N opened FULL_CONTENT / N/A (Method A had results) / ❌ tool error
+- Zoom: ✅ N results / ✅ 0 / N/A (Recording Tools doesn't list Zoom) / ❌ tool error
 ```
+
+**⚠️ Slack DM Chorus — extract in full, no truncation:**
+The Slack DM messages are pre-parsed — no `get_thread` needed. But extract every action item and every meeting summary bullet for relevant recaps. Do not summarize or drop items. The count of action items extracted must be reported: "✅ 2 recaps, 14 action items total extracted." A recap with 0 action items logged is a hard error — re-read the Slack message before accepting zero.
+
+**⚠️ Gmail Gemini Method B — FULL_CONTENT is mandatory when it runs as fallback:**
+If Method B runs (GDrive folder returned 0 results), call `get_thread` with `messageFormat: FULL_CONTENT` on every Gemini email thread — snippets are not sufficient. This line must report both: "✅ 2 threads found, 2 opened with FULL_CONTENT." If threads found ≠ threads opened, go back before proceeding.
 
 ### Step 5: Present Results
 
@@ -171,6 +265,26 @@ Always present in three parts:
 ```
 ## RAID Log Update — [Merchant Name]
 Date: MM/DD/YY
+
+Research Sources:
+- Project file: ✅ / ❌
+- RAID Log: ✅ / ❌ tool error
+- Notes doc: ✅ / ❌ tool error
+- Salesforce: ✅ / ❌ tool error
+- GDrive recent docs: ✅ / ❌ tool error
+- GDrive Gemini folder (Method A): ✅ N results / ✅ 0 / ❌ tool error
+- Slack primary channel: ✅ / ❌ tool error
+- Slack alias search: ✅ / ❌ tool error
+- Slack DMs ([list contacts covered]): ✅ / ❌ tool error
+- Jira: ✅ / ❌ tool error
+- Gmail 5-day: ✅ / ❌ tool error
+- Gmail 30-day: ✅ / ❌ tool error
+- Slack DM D057X0PEFJS — Chorus recaps: ✅ N recaps for [merchant], N action items extracted / ✅ 0 / ❌ tool error
+- Gmail Chorus fallback: ✅ N results / N/A (Slack DM had results) / ❌ tool error
+- Gmail Gemini Method B fallback: ✅ N threads found, N opened FULL_CONTENT / N/A (Method A had results) / ❌ tool error
+- Zoom: ✅ N results / ✅ 0 / N/A (Recording Tools doesn't list Zoom) / ❌ tool error
+[FULL SWEEP / PARTIAL SWEEP — if partial, list exactly what was skipped and why]
+
 Existing items updated: X (list each by ID and Name, with a one-line note on what changed and why)
 New items added: Y total (N Risks, N Actions, N Issues, N Decisions)
 

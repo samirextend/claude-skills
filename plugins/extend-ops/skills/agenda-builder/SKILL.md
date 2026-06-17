@@ -15,6 +15,8 @@ description: >
 
 Even when resuming a session, continuing from a summary, or mid-task: read this skill in full before producing any agenda output. Do not rely on session memory or prior runs. The output format, filter rules, and required sections must be verified against this document every time.
 
+**After session compaction specifically:** the conversation summary will describe what a prior agenda looked like or what format was used. Do NOT treat that description as a format reference — it may be wrong, incomplete, or based on a prior run that itself had errors. The only valid format reference is Step 5 of this skill, read fresh. Re-read Step 5 before writing a single character of agenda output, every time without exception.
+
 Specific failure mode to avoid: building the agenda without reading this skill and skipping required sections (Last Call Recap, Decisions Needed Today, inline bolded action items, What's Next). These deviations will be caught immediately. Read first — always.
 
 ### 🚫 No-Skip Research Discipline (non-negotiable — applies in BOTH modes)
@@ -73,10 +75,30 @@ Also check: `{base_dir}/../../../Claude/memory/context/agenda-prep.md` if it exi
 context on how Samir prefers agendas structured.
 
 Each project file contains: notes doc URL, GDrive subfolder link, Slack channel(s), key
-contacts, open tickets, recurring topics, already-resolved items, and doc formatting rules.
+contacts, open tickets, recurring topics, standing external agenda items, already-resolved items, and doc formatting rules.
+
+**Read the project file in full — no size limit, no truncation.** Project files are local MD files (not MCP calls) — they are fast and token-efficient to read. Truncating a project file causes missed contacts, missed recurring topics, missed standing agenda items, and missed action items. Any `Notes doc fetch size` field in the project file applies only to the external Google Docs implementation notes file, never to the project MD itself.
 
 **If a project file is missing or unreadable:** note it in the Research Sources section and
 proceed using live sources only. Do not block on it.
+
+---
+
+## Step 0 — Tool Availability Check (run before anything else)
+
+Before reading the project file or touching any research source, verify that Gmail and GDrive are reachable. These are the two tools most likely to fail transiently at session start due to MCP servers not yet fully connected.
+
+**Run both in parallel:**
+1. Gmail probe: `search_threads(query: "newer_than:1d", pageSize: 1)` — any result confirms Gmail is up.
+2. GDrive probe: `search_files(query: "modifiedTime > '2026-01-01T00:00:00Z'", pageSize: 1)` — any result confirms GDrive is up.
+
+**If either returns a tool error:** wait ~5 seconds and retry once. A single retry distinguishes a transient startup error from a persistent one. Do not retry more than once.
+
+**If the retry also fails:** mark that tool as ❌ in Research Sources with "tool error — confirmed after retry" and proceed.
+
+**If both succeed:** log `Step 0 — Gmail ✅ / GDrive ✅` and proceed to Step 1.
+
+This step prevents the pattern of false Gmail/GDrive failures caused by MCP servers not yet fully connected at session start.
 
 ---
 
@@ -114,6 +136,61 @@ was found.
 
 ---
 
+## Step 2b — Delta check (Standard Mode — run immediately after reading project file)
+
+Before starting the full research sweep, check `## Last Sync Metadata` in the project file.
+
+**If ALL of the following are true:**
+1. `skill` = `weekly-merchant-sync`
+2. `date` is within 8 days of today
+3. All fields have explicit counts (no blanks, no "N/A")
+
+**Then apply these delta shortcuts:**
+
+- **Jira:** Skip live Jira query. Use both of the following from the project file:
+  - `## Open Ticket Statuses` — tickets updated in the last 5 days (merchant-sync's text/alias sweep)
+  - `## Jira Epic Hierarchy` — full TAM epic → child → cross-project linked issue structure, regardless of recent activity. This catches open child tasks and linked stories that haven't been updated recently and therefore won't appear in `## Open Ticket Statuses`.
+  Note in Research Sources: `Jira — delta from project file ([sync date]): Open Ticket Statuses + Jira Epic Hierarchy`.
+
+- **GDrive:** Check `## GDrive Doc Index` before any GDrive query. For each doc listed, compare its `Last Modified` date against `last_sync_date` from `## Last Sync Metadata`. Skip docs not modified since last sync — re-fetching them adds no new information. Only fetch docs with a newer modified date. If `## GDrive Doc Index` is absent, run the normal repeat-run query from research-guide.md Section 3.
+
+- **Key Reference Docs:** Check `## Key Reference Docs` before fetching any doc whose File ID appears there. Compare the entry's `Last Modified` date against `last_sync_date`. If `Last Modified` ≤ `last_sync_date`, use the cached excerpt as context — do not fetch the full doc. Only fetch if `Last Modified` > `last_sync_date`. Skip entries with `File ID: N/A` (Lucidchart, folders, external platforms) — no GDrive fetch to optimize there.
+
+- **Slack/Gmail ambient context:** Read `## Slack Highlights` and `## Gmail Highlights` from the project file as lightweight context supplements. If a topic appears in these sections and has no new activity since last sync, you don't need to re-research it via live queries. These sections cover ambient context that didn't rise to the level of action items or decisions but is useful for framing.
+
+- **Last call context:** Read `## Last Agendas` if present. Apply a two-level read:
+
+  1. **Exact-match lookup (primary):** Find the entry whose heading matches today's meeting title exactly. If found and dated within 30 days, this is the primary last-meeting reference — use it for notes doc skip (see Step 3c) and for Last Call Recap framing. If no exact match exists or the entry is older than 30 days, no notes doc skip applies.
+
+  2. **Same-type scan (supplemental, always run):** Regardless of whether an exact match was found, scan ALL other entries in `## Last Agendas` whose type (Internal/External) matches today's meeting. Read them as ambient context — open items that recurred across similar calls, decisions made in related sessions, action items that may still be live. Do not use these as a substitute for the exact-match entry or as justification for skipping the notes doc. Surface any still-open items from these entries in the Last Call Recap if they haven't been confirmed closed.
+
+  **Write logic (always exact title — never fuzzy):** After the agenda is produced, the write-back in Step 5 upserts only the exact meeting title entry. Two similar meetings with slightly different titles accumulate as separate entries — this is intentional. A fuzzy write risks overwriting a distinct meeting's context. Extra entries are safe; clobbered entries are not.
+
+- **Chorus/Gemini — cache-first, read only what's new:**
+  1. Before reading D057X0PEFJS, compute the 8-day midnight timestamp via bash: `date -d '8 days ago 00:00:00' +%s`. This step runs here, before Step 3, because Step 0b from research-guide has not run yet in delta mode. Do not mentally calculate this value.
+  Read Slack DM `D057X0PEFJS` using that timestamp as `oldest`, to get Chorus recaps (covers all merchants; filter by this merchant). Note the date of each recap found.
+  2. Read `last_call_date` from `## Last Sync Metadata` and `## Recent Call Recaps` from the project file.
+  3. For each Chorus recap returned: compare its date against `last_call_date`.
+     - **Date ≤ `last_call_date`** → already in the cache. Use the cached recap from `## Recent Call Recaps`. Skip this recap.
+     - **Date > `last_call_date`** → new call not yet synced. Extract action items and summary from the Slack DM message directly (no `get_thread` needed — content is pre-parsed). Note it as a gap in the last sync.
+  4. For Gemini: check GDrive folder `1qU9GdzkiMDYiXvqHXrVPTUfimulg2zmH` for docs modified since `last_call_date`. Apply dedup — skip any doc whose meeting date/title is already covered by a Chorus recap. Read uncovered docs.
+  5. If `last_call_date` is older than 8 days or missing: treat all recaps as stale — skip the cache check and run Chorus/Gemini fully.
+
+  A Friday sync + mid-week agenda run with no new calls since sync = Slack DM read (one call, all merchants) + zero additional Gemini reads needed.
+
+**Delta check result — always declare explicitly before proceeding:**
+Write one of these lines before continuing to Step 3:
+- `Delta check: MET — using Jira cache from [date]; Chorus/Gemini delta from [last_call_date]`
+- `Delta check: NOT MET — [reason: date > 8 days / missing counts / skill ≠ weekly-merchant-sync] — running full sweep`
+
+This declaration is required. It prevents the delta check from being silently skipped.
+
+**If the delta conditions are NOT met:** run the full research sweep with no shortcuts.
+
+**What is never skipped regardless of delta state:** Slack channels + DMs, GDrive notes doc, pre-call pulse (Step 3b). The Slack DM Chorus read still always runs — only Gemini doc reads are skipped when cache is fresh and no uncovered meetings remain.
+
+---
+
 ## Step 3 — Research (Standard Mode only)
 
 *Skip to Step 3F if you are in Focused Mode.*
@@ -122,10 +199,15 @@ Read `research-guide.md` at `{skill_base_dir}/../../../Claude/memory/research-gu
 
 **Agenda-specific overrides and notes:**
 
+- **Chorus/Gemini — always run live, never skip:** Regardless of delta state or how recently merchant-sync ran, always read Slack DM `D057X0PEFJS` for Chorus and check the GDrive Gemini folder for this merchant. These are the highest-signal sources for pre-meeting context. Use the 14-day midnight timestamp from research-guide Step 0b as the `oldest` parameter — never compute this value separately or mentally. After running, cross-reference results against `## Recent Call Recaps` in the project file (Step 2b) — if a call is already cached, use the cached summary rather than re-reading. Apply Chorus/Gemini deduplication: if a Chorus recap covers a meeting, skip the Gemini doc for that same meeting.
+
 - **Target meeting lookup (Step 1) is separate from the guide's calendar sweep.** Step 1 finds the specific meeting and its attendee list. The guide's Section 2 provides broader upcoming/recent meeting context. Both run independently.
-- **Recurring agenda items:** Scan the Agenda sections of the last 2–3 notes doc entries for standing topics that appear week-over-week (e.g., "SIT/UAT status", "Open engineering items"). These belong on the agenda even without an explicit open question — their recurrence is the signal.
+- **Recurring agenda items — two mandatory sources, both required:**
+  1. **Project file `## Recurring Topics` section:** Read this section directly and treat every active topic listed there (i.e., not in `## Already Resolved`) as a candidate for the agenda, regardless of whether it surfaced in the notes doc read. This is the safety net when notes doc parsing is incomplete — if a standing topic is in Recurring Topics, it belongs on the agenda even if the notes doc didn't surface it.
+  2. **Notes doc scan:** Scan the Agenda sections of the last 2–3 notes doc entries for standing topics that appear week-over-week (e.g., "SIT/UAT status", "Open engineering items"). These belong on the agenda even without an explicit open question — their recurrence is the signal.
+  Both sources must be checked. A topic that is in `## Recurring Topics` but not in the notes doc still makes the agenda — the project file is the source of truth for what recurs, not just what was most recently discussed.
 - **Jira output split:** Split tickets into Open and Recently Completed (last 2 weeks). Always include recently completed — they provide useful "what just shipped" context for both meeting types.
-- **Recording Link field:** Note subject + date of any Chorus or Gemini email found — use it to populate the Recording Link field in the agenda output.
+- **Recording Link field:** Removed from agenda output — recording is not available until after the call. Do not include a Recording Link field in the output.
 - **Notes doc subagent instructions — return everything, not just labeled action items:** When spawning a subagent to read the implementation notes doc, the prompt must explicitly instruct it to return EVERY item that looks like an open question, unresolved discussion point, embedded action, or follow-up — including items that appear as sub-bullets or question lines inside another section's notes. Do not rely only on clearly labeled `→ Action:` lines. Summaries naturally compress and drop embedded items; the subagent must be instructed to surface them all.
 
 **Mandatory last-call action item inventory (run before writing the agenda):**
@@ -163,7 +245,7 @@ that could change what's on the agenda or how it's framed:
   before it makes it into a notes doc or named channel. Missing a DM thread is a direct
   cause of stale agenda items.
 
-- **Gmail:** Run `from:[merchant domain] newer_than:1d` to catch any email sent today.
+- **Gmail:** Run `from:[merchant domain] newer_than:1d` to catch any email sent today. If this returns a tool error, retry with `[merchant name] newer_than:1d -from:me` (inbound) and `[merchant name] newer_than:1d in:sent` (outbound). A tool error on the domain query is not a valid skip — retry before marking this incomplete.
 
 If anything material surfaces (a resolved action item, new merchant request, same-day decision),
 update the agenda accordingly. Mark these findings in Research Sources with ⚡ to flag they
@@ -177,7 +259,7 @@ Do not write the agenda until every line below is filled. Any blank (not a tool 
 
 ```
 - Project file: ✅ / ❌
-- RAID Log (all 3 tabs): ✅ / ❌ tool error
+- RAID Log (dedicated sheet — 1 tab) OR (combined sheet — 3 tabs): ✅ / ❌ tool error
 - Notes doc: ✅ / ❌ tool error
 - Salesforce: ✅ / ❌ tool error
 - GDrive recent docs: ✅ / ❌ tool error
@@ -189,12 +271,42 @@ Do not write the agenda until every line below is filled. Any blank (not a tool 
 - Jira (open + project-scoped): ✅ / ❌ tool error
 - Gmail 5-day check: ✅ / ❌ tool error
 - Gmail 30-day inbound/outbound: ✅ / ❌ tool error
-- Gmail Chorus: ✅ N results / ✅ 0 / ❌ tool error
-- Gmail Gemini Method B: ✅ N results / ✅ 0 / ❌ tool error
-- Zoom: ✅ N results / ✅ 0 / ❌ tool error
+- Slack DM D057X0PEFJS — Chorus recaps: ✅ N recaps for [merchant] / ✅ 0 / ❌ tool error
+- Gmail Chorus fallback: ✅ N results / N/A (Slack DM had results) / ❌ tool error
+- Gmail Gemini Method B fallback: ✅ N results / N/A (Method A had results) / ❌ tool error
+- Zoom: ✅ N results / ✅ 0 / N/A (Recording Tools doesn't list Zoom) / ❌ tool error
 ```
 
+**Tier 1 gate — check these before anything else:**
+Before scanning the full checklist, confirm these Tier 1 sources ran. If any are blank (not a tool error — just not run), stop and run them now. Output cannot proceed with a Tier 1 gap.
+
+- [ ] Slack DM D057X0PEFJS — Chorus recaps read, merchant recaps identified, covered meetings set built
+- [ ] GDrive Gemini folder Method A — docs found, dedup applied, uncovered meetings read
+- [ ] Gmail Gemini Method B — run only if Method A returned 0; otherwise N/A
+- [ ] Slack — all named channels + all 1:1 DMs with Extend-side contacts on this project
+- [ ] GDrive — notes doc (first 15k chars, HEAD read, newest-at-top)
+- [ ] GDrive — RAID log ⚠️ This is a hard block. A blank here with no tool error documented = source not run. Go back and run it before output proceeds.
+  **Always derive structure from the project file's `## RAID Log` section — never assume tab count:**
+  - Use the file ID from `## RAID Log` in the project file.
+  - Tab structure (how many tabs, which tab contains RAID rows, whether a Ticket Tracker tab exists) is defined per-merchant in the `## RAID Log` section. Read what's documented there and follow it exactly.
+  - Do not assume a fixed number of tabs for any merchant.
+- [ ] GDrive — Ticket Tracker tab — only if documented in the project file's `## RAID Log` section; skip if not mentioned
+- [ ] Zoom — search_zoom docs (only if project file `Recording Tools` lists Zoom; otherwise mark N/A)
+
 Do not write a single line of agenda output until all 16 lines are filled.
+
+**Notes doc — HEAD fetch, with delta skip when ## Last Agendas is fresh:**
+
+**Delta skip rule:** If ALL of the following are true, skip the notes doc fetch and mark this line `✅ skipped — Last Agendas cache`:
+1. Delta check is MET (## Last Sync Metadata within 8 days, all counts present)
+2. `## Last Agendas` has an entry whose heading matches today's meeting title exactly
+3. That entry is dated within 30 days
+
+When the skip applies: use the matching `## Last Agendas` entry as the primary last-meeting reference. It was produced by agenda-builder from the same sources, is already structured, and is more current than anything in the notes doc that predates it.
+
+**When the skip does NOT apply:** Notes docs are organized newest-at-top. Fetch the first ~15,000 characters using `read_document` or `read_file_content` with no offset (startIndex = 0). Do not fetch the full doc. Do NOT read from the end/tail. Any `Notes doc fetch size` override in the project file (e.g., `25,000 chars`) takes precedence over the 15k default — check the project file for this field before fetching.
+
+If the head fetch fails, fall back to Glean `read_document` on the notes doc URL. Only if both fail may this line be marked ❌. A size or token limit error on a full-doc fetch is not a valid ❌ — that means the wrong read method was used.
 
 ---
 
@@ -212,14 +324,30 @@ Read the merchant project file in full. Extract only what is directly relevant t
 - Relevant Slack channels and notes doc URLs
 - Any Jira tickets or recurring topics related to this subject
 
-**Step 3F-2: Read the notes doc (topic-targeted)**
-Open the implementation notes doc. Scan the last 3–4 meeting entries for any discussion of this specific topic. Do not summarize all open items — pull only what's relevant to the meeting focus.
+**Step 3F-2: Read the notes doc (topic-targeted) — TWO PARTS, BOTH MANDATORY**
+
+⚠️ Do not skip Part 2. The HEAD fetch only covers recent meetings. If the topic was last discussed weeks ago, it will not appear in the first 15k chars. Part 2 is what catches it.
+
+**Part 1 — HEAD fetch (recent context):**
+Fetch the first ~15,000 characters of the notes doc using `read_file_content` or `read_document` with startIndex=0. Notes docs are newest-at-top — this covers the last 2–4 meeting entries. Pull only what's relevant to the meeting topic. Do not fetch the full doc and do not read from the tail.
+
+**Part 2 — Glean keyword search (historical backstop):**
+Run a Glean search against the notes doc URL using the topic keywords (e.g., `training`, `visa credit`, `claims architecture`). This surfaces topic-relevant passages regardless of how far back they appear — without reading the whole doc. If Glean returns content not already covered by the HEAD fetch, note it as additional context. If it returns nothing new, move on.
+
+Only pull content relevant to the meeting topic. Do not summarize unrelated open items.
 
 **Step 3F-3: Run targeted Slack search**
-Search the merchant's Slack channels (internal + external) for the topic keywords — last 2 weeks. Use the meeting title words, the subject matter keywords, and any names of attendees involved in this workstream. Look for: recent decisions, open questions, action items taken or pending.
+Two parts — both mandatory:
+
+1. **Keyword search:** Search the merchant's Slack channels (internal + external) for the topic keywords — last 2 weeks. Use the meeting title words, the subject matter keywords, and any names of attendees involved in this workstream. Look for: recent decisions, open questions, action items taken or pending.
+
+2. **Direct channel reads — all documented channel IDs (mandatory, not scoped by topic):** Read every channel ID listed in the merchant's project file `## Slack` section directly — primary channel, external channel, and every entry under "Also read" (group DMs, 1:1 DMs). This is a full 7-day read of each channel, not a keyword-scoped search within them. Do not skip channels because they seem unlikely to contain topic-relevant content — key context (decisions made in passing, async alignments, prep call outcomes) rarely surfaces in keyword searches and almost always appears in the documented channels. Always compute the 7-day timestamp with bash (`date -d '7 days ago' +%s`) — never hardcode it.
 
 **Step 3F-4: Run targeted Gmail search**
 Search Gmail for the topic keywords — last 14 days. Include both directions (from merchant and from Extend team). Look for: email threads on this subject, documents shared, decisions made async.
+
+**Step 3F-4b: Search for internal prep call Gemini/Chorus notes (mandatory)**
+Separately from the topic keyword search, always run: `"notes" "[merchant]" (prep OR internal OR training OR review) after:[7 days ago]`. An internal prep call almost always precedes an important external meeting. Its Gemini notes are Tier 1 context regardless of focus mode — missing them is a direct cause of stale agenda items and misframed decisions. For every Gemini/Chorus notes email found, open the linked doc and read it in full before proceeding to output.
 
 **Step 3F-5: Run targeted Jira search (if applicable)**
 If the topic involves engineering, product, or custom requirements, search Jira for tickets related to the topic. Use `text ~ "[topic keywords]"` scoped to relevant projects. Skip if the topic is purely operational (e.g., training logistics, legal contracts).
@@ -373,13 +501,19 @@ during Jira research.
 
 **Steps:**
 
-1. Pull the complete list of open tickets from the merchant's project file (`## Open Tickets` section).
+1. Pull the complete list of open tickets using the most accurate source available:
+   - **Prefer `## Open Ticket Statuses`** if present — this is written by merchant-sync as a complete overwrite every sync and is always current as of the last run. It has ticket key, summary, status, and assignee.
+   - **Fall back to `## Open Tickets`** only if `## Open Ticket Statuses` is absent (e.g., merchant-sync has never run for this merchant).
 2. For each ticket, identify its assigned owner (from the ticket description in the project file or from Jira research).
 3. Cross-reference each owner against the confirmed attendee list for this meeting.
 4. For each ticket where the owner is attending this call: check whether that ticket already appears in the drafted agenda.
-5. If any such ticket is missing from the agenda — add it before proceeding to Step 5. Do not rationalize why it might not be needed. If the owner is on the call and the ticket is open, it belongs on the agenda.
+5. If any such ticket is missing from the agenda — flag it before proceeding to Step 5. Do not rationalize why it might not be needed. If the owner is on the call and the ticket is open, it belongs on the agenda.
 
 **Also check:** Open Action Items from the project file whose owner is attending this call. Apply the same logic — if they're attending and the item is open, it must be on the agenda or explicitly accounted for.
+
+**`[SURFACE ON NEXT AGENDA]` tag — mandatory scan:** Scan every item in `## Open Action Items` for the tag `[SURFACE ON NEXT AGENDA]`. Any item carrying this tag must appear on today's agenda, regardless of whether it was surfaced by the research sweep. This tag is set manually by Samir when an item needs to land on the next call — missing it is a direct failure. Check for it explicitly; do not rely on the research sweep to surface it.
+
+**Ticket Tracker tab — mandatory cross-check:** The RAID log spreadsheet contains a "Ticket Tracker" tab listing every Jira ticket being watched week over week for this merchant. This is the canonical weekly tracking list — not just the project file's Open Tickets section. For every ticket in the Ticket Tracker that is not Done/Closed: cross-reference the owner or workstream against the attendee list. If the ticket is active (Ready For Work, In Progress, Delayed, or Blocked) and has an owner on this call — it belongs on the agenda. Do not pick selectively from what research surfaced. Check every row.
 
 **This step exists specifically to catch:** tickets assigned to attendees that are open in the project file but weren't caught during the Jira research sweep (e.g., a ticket that's been open for weeks, isn't in recent Jira results, but whose owner is sitting on this call today).
 
@@ -387,12 +521,41 @@ during Jira research.
 
 ---
 
-## Step 5 — Output the agenda in the conversation
+## Step 6 — Output the agenda in the conversation
 
 Display the agenda directly here as clean markdown. Do not insert into Google Docs or send
-a Slack DM. Do not wrap the agenda in a code block. Each top-level field (Recording Link,
-Attendees, Agenda/Notes, Next Steps) must be separated by a blank line for clean rendering.
+a Slack DM. Do not wrap the agenda in a code block. Each top-level field (Attendees,
+Agenda/Notes, Next Steps) must be separated by a blank line for clean rendering.
 Do not add blank lines between individual agenda bullets.
+
+---
+
+## ⛔ SUB-BULLET ORDER — CHECK EVERY AGENDA ITEM BEFORE WRITING IT ⛔
+
+This is the single most commonly violated rule. The order within each agenda item is fixed:
+
+**1. `→ Action` FIRST — always, when an action exists**
+**2. Italicized open question SECOND**
+**3. Background context THIRD**
+
+```
+WRONG (will be caught immediately):
+* Item title (~X min)
+  * *Open question first* ← WRONG
+  * Background context ← WRONG
+  * **→ Action last** ← WRONG
+
+RIGHT:
+* Item title (~X min)
+  * **→ Action: Owner — description** ← FIRST
+  * *Open question* ← SECOND
+  * Background context ← THIRD
+```
+
+Before writing each agenda item, say to yourself: "→ Action first. Question second. Context third."
+Do not proceed to the next item until you verify the order is correct on the current one.
+
+---
 
 ⚠️ **JIRA LINKS — NON-NEGOTIABLE. CHECK BEFORE WRITING A SINGLE WORD OF OUTPUT.**
 
@@ -433,8 +596,6 @@ Everything pastes as normal Arial 11 text. Bold action items and italic question
 Use this exact format every time:
 
 **[Month DD, YYYY] [Title of Meeting]**
-
-**Recording Link:** [search Gmail for a Chorus (external) or Gemini (internal) email matching this meeting — paste URL if found, otherwise "TBD"]
 
 **Attendees:**
 * Merchant: [name, title] (list all non-@extend.com attendees)
@@ -482,9 +643,7 @@ Next Steps / Action Items:
 - **Date + Title**: Use the meeting date and name from the calendar invite or user's request.
   For internal meetings, prefix the title with `[Internal]` (e.g., `[Internal] CarParts Engineering Review`).
 
-- **Recording Link**: Search Gmail for an automated Chorus or Gemini email tied to this
-  specific meeting. Paste the link if found. If not yet available (meeting hasn't happened),
-  put "TBD".
+- **Recording Link**: Removed — not included in agenda output. Recording is only available after the call.
 
 - **Attendees**: Pull from the calendar invite attendee list if available; otherwise use
   known contacts from the merchant project file. Separate into Merchant (non-@extend.com)
@@ -516,6 +675,36 @@ Next Steps / Action Items:
   The test: would listing this detail help Samir run the call, or would it bog him down?
   If it would bog him down, link the source and move on.
 
+  **Chorus/Gemini action item lists — use nested sub-bullets within the parent topic:**
+  When a Chorus recap or Gemini notes email surfaces a numbered list of action items under a single topic (e.g., 19 portal UX items from Lindsay), keep them under ONE top-level agenda bullet for that topic — do NOT create a separate top-level bullet for each item, and do NOT dump them as a flat wall of text in a single context sub-bullet. Instead, apply the nested sub-bullet pattern inside the background context sub-bullet:
+
+  ```
+  * Portal UI updates (~10 min)
+    * **→ Action: Lindsay White — [top action]**
+    * *[italic open question]*
+    * Lindsay has [N] UX/copy items from the [date] Chorus recap — key open items:
+        * **[Bold lead phrase]** — [specific item]
+        * **[Bold lead phrase]** — [specific item]
+        * **[Bold lead phrase]** — [specific item]
+      Full list: [Chorus recap, date]
+  ```
+
+  Select the 3-5 most critical or still-open items from the list and give each its own nested sub-bullet with a bold lead phrase. The rest are captured by the source link. This is the same nested sub-bullet pattern required for any context sub-bullet containing 3+ distinct points — a Chorus action list is not an exception to that rule.
+
+  **Closed spec questions in partially-resolved threads — preserve as confirmation context:**
+  When a Slack or email thread closes multiple spec or payload questions but leaves one still open,
+  do NOT compress the closed items into a summary line (e.g., "Ankita resolved intangibles,
+  non-warrantables, and refund questions"). The resolved spec details — field names, expected values,
+  behavioral rules — are confirmation context that call participants need to verify alignment live.
+  Each resolved spec point must appear as a nested context sub-bullet with the specific detail:
+  ```
+      * **[Spec point]:** [exact field name / value / behavior confirmed]
+      * **[Spec point]:** [exact field name / value / behavior confirmed]
+  ```
+  The open question (the one not yet resolved) then surfaces as the italicized main question for
+  the item. This pattern applies any time a testing, integration spec, or UAT alignment thread
+  partially closes — spec details are confirmation context, not resolved history to be discarded.
+
   ```
   * [Agenda item title — plain text, no bold] (~X min)
     * **→ Action: [Owner] — [action description]**  ← first sub-bullet when an action exists
@@ -534,10 +723,12 @@ Next Steps / Action Items:
   The test: would a reader scanning the agenda miss that there are two separate things to
   discuss? If yes, split it. This applies regardless of how closely related the topics seem.
 
-  **Sub-bullet order is fixed — do not vary it:**
-  1. `→ Action` (bolded) — always first, so it's the first thing seen when scanning live
-  2. Open question / decision needed — *always italicized*
-  3. Background context — plain text with **key phrases bolded** inline
+  ⚠️ **STOP BEFORE WRITING EACH AGENDA ITEM. Sub-bullet order is fixed — verify before you type:**
+  1. `→ Action` (bolded) — **FIRST. Always. No exceptions.** Action before question, action before context.
+  2. Open question / decision needed — *always italicized* — second
+  3. Background context — plain text with **key phrases bolded** inline — third
+
+  The failure mode: writing the italic question first because it feels natural as a narrative intro. It is wrong every time. Action is first so Samir sees ownership at a glance during a live call. If you wrote the question first, go back and reorder before proceeding.
 
   If an agenda item has no action (e.g., a pure discussion or update item), start with the
   open question instead and omit the → Action sub-bullet entirely for that item.
@@ -623,14 +814,20 @@ Slack (topic-targeted search), Gmail (topic-targeted search), relevant docs surf
 Jira (if applicable to topic). Note the mode at the top of the Research Sources section:
 `Mode: Focused — topic: [stated topic]`
 
-This way Samir always knows exactly what informed the agenda and can flag anything that looks off.
+**Always include a write-back status line as the final entry:**
+```
+Project file write-back: ✅ complete — [e.g. "Last researched updated, 3 Key Decisions added, 2 items closed → Already Resolved, 4 new action items added"]
+Project file write-back: ⚠️ partial — [what was written vs. what was skipped, and why]
+Project file write-back: ❌ not completed — [reason]
+```
 
-## Step 6 — Update the merchant project file (MANDATORY — do not skip)
+This line must always be present. If the write-back was skipped or incomplete, Samir needs to know immediately so he can follow up before the next skill run pulls stale data.
 
-After outputting the agenda, silently update the merchant's project file to reflect what
-was learned during research. This step is not optional — run it after every agenda output,
-regardless of session length or how much changed. Do not ask for permission — just do it
-and note what changed.
+## Step 5 — Update the merchant project file (MANDATORY — runs before agenda output)
+
+Before writing the agenda, update the merchant's project file with everything learned during research. Running write-back first ensures it completes even if context pressure builds during the longer agenda output. Do not ask for permission — just do it and note what changed at the end.
+
+**⛔ Bash prohibition for GDrive MCP data:** Do NOT pipe GDrive MCP responses (RAID log, notes doc, spreadsheet tabs) through bash for parsing. The bash sandbox uses different file paths than the Claude file tools and cannot access MCP response data — this will silently fail with FileNotFoundError. Parse all GDrive MCP content directly in-context using the MCP tool's return value. Only use bash for computing timestamps, string manipulation, or local file operations.
 
 **Section discipline — read before touching anything:**
 
@@ -642,6 +839,7 @@ project file and wholesale replacement silently destroys his edits.
 | Key Decisions, Key Contacts, Zoom Docs, Slack channels, Already Resolved | **Append-only.** Only add net-new entries. Never overwrite or delete existing content. |
 | Open Action Items, Open Tickets, Recurring Topics | **Live list.** Items are added when new, removed when confirmed closed. Removals must be explicit and evidence-backed — not inferred. |
 | Last researched, Overview fields | **Replace in place.** |
+| `## Last Agendas` | **Upsert by meeting title.** Overwrite the matching entry; leave all other entries untouched. |
 
 ---
 
@@ -688,6 +886,33 @@ project file and wholesale replacement silently destroys his edits.
   `- **[Date] — [Meeting Title]:** [URL] (file ID: \`[file_id]\`)`
   Append-only. **If this section does not exist, create it** after `## GDrive`.
 
+- **`## Last Agendas` — per-meeting-title context cache (upsert by title):**
+  After completing all other write-backs, write a compressed snapshot of the agenda just generated into `## Last Agendas`, keyed by the exact meeting title. This eliminates the need to re-fetch the notes doc for recurring meetings — downstream skills read the matching entry as the going-in context for the last meeting of that type.
+
+  **Write logic — exact title only, no fuzzy matching:** Find the existing entry whose heading matches today's meeting title character-for-character. If found, overwrite it entirely. If not found, prepend a new entry at the top of the section. Never remove or overwrite other entries. Do NOT fuzzy-match a similar title and overwrite it — two similar meeting titles are intentionally separate entries. A duplicate entry is recoverable; a clobbered entry is not.
+
+  Format (per entry):
+  ```markdown
+  ## Last Agendas
+
+  ### [Exact meeting title from calendar invite]
+  _Built: [YYYY-MM-DD] | Type: [Internal/External]_
+
+  **Key open items going in:**
+  - [item — 1 line each, max 6 items]
+
+  **Topics covered:**
+  - [agenda item title — no sub-bullets, just the label]
+
+  **Action items assigned:**
+  - [Owner — action description, 1 line each]
+
+  **Context snapshot:**
+  - [Top 3 things that were known or decided at prep time, 1 line each]
+  ```
+
+  Keep each bullet to one line. This is a cache for downstream use, not a full agenda copy. Create `## Last Agendas` at the end of the project file if it doesn't exist.
+
 ---
 
 **Write-back path**: The project file path is:
@@ -696,8 +921,31 @@ project file and wholesale replacement silently destroys his edits.
 For example, for CarParts:
 `/sessions/[session-id]/mnt/Claude/memory/projects/carparts.md`
 
-After updating, append a brief line below the Research Sources section:
+After updating, note what changed in a single line before proceeding to Step 6:
 
-Project file updated: [list what changed, e.g. "Last researched updated, 2 Key Decisions added, 1 action item closed → Already Resolved, 2 new action items added, 1 Recurring Topic removed → Already Resolved"]
+`Project file updated: [e.g. "Last researched updated, 2 Key Decisions added, 1 action item closed → Already Resolved, 2 new action items added"]`
 
-If nothing changed, omit this line.
+If nothing changed, omit this line. Then proceed immediately to Step 6 (agenda output).
+
+---
+
+## Step 6b — Mandatory Post-Write Format Verification
+
+**This step runs immediately after the agenda output and MUST appear visibly in the conversation.** Its absence is proof it was skipped — Samir uses it to verify the check ran.
+
+Pre-write warnings are insufficient because they can be forgotten mid-output. This post-write pass catches mistakes that slipped through and requires correcting them before the agenda is final.
+
+**After writing the complete agenda, output this block:**
+
+```
+Format check:
+* [Agenda item title]: ✅/❌ action first | ✅/❌ question second | ✅/❌ context third
+* [Agenda item title]: ✅/❌ action first | ✅/❌ question second | ✅/❌ context third
+[one line per agenda item]
+```
+
+**If any item shows ❌ on any position:** rewrite that item in place before declaring the agenda complete. Do not leave a failing item in the output.
+
+**Only after every item shows ✅ across all three positions is the agenda final.**
+
+This section is non-optional. An agenda without a Step 6b verification block is an incomplete agenda.
